@@ -54,7 +54,7 @@ CODEX_OUT_DIR    := $(PROJECT_ROOT)/.codex
 CODEX_LAST       := $(CODEX_OUT_DIR)/last.txt
 
 # ---- Targets -----------------------------------------------------------------
-.PHONY: setup deps fmt lint typecheck lint-all test coverage verify ci smoke clean clean-all \
+.PHONY: setup deps fmt lint typecheck lint-all test mypy build coverage verify ci ci-plus smoke clean clean-all \
         help venv codex-setup codex-run codex-resume codex-tail codex-debug-net
 
 help: ## 利用可能ターゲットを表示
@@ -88,6 +88,12 @@ lint-all: lint typecheck ## ruff/black + mypy + flake8
 test: ## ユニットテスト（速い・カバレッジ表示）
 	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTEST_ADDOPTS="-p pytest_cov" $(PYTEST) $(PYTEST_ARGS)
 
+mypy: ## 型検査（mypy、pyproject 設定準拠）
+	mypy src
+
+build: ## sdist/wheel のビルド検証
+	python -m build
+
 coverage: ## カバレッジの XML/HTML レポート生成
 	$(PYTEST) -q --cov=src/nf_auto_runner --cov-report=xml --cov-report=html
 	@echo "coverage: coverage.xml / htmlcov/index.html を確認"
@@ -97,10 +103,9 @@ verify: ## プロジェクト独自の検証
 	 export PYTEST_ADDOPTS="-p pytest_cov"; \
 	 ./scripts/verify.sh
 
-ci: ## CIゲート（lint→test→verify）
-	$(MAKE) lint
-	$(MAKE) test
-	$(MAKE) verify
+ci: lint test verify ## CI ゲート（lint → test → verify）
+
+ci-plus: lint mypy test verify build ## CI 拡張（lint/mypy/test/verify/build）
 
 smoke: ## (任意) NF最小スモーク。ファイルが無ければスキップ
 	@if [ "$(NF_SMOKE)" = "1" ] && [ -f "$(NF_SMOKE_ENTRY)" ]; then \
