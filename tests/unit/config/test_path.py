@@ -101,7 +101,9 @@ class TestPathConfig:
             plot_dir=tmp_path / "outputs" / "plots",
         )
 
-        with pytest.raises(ValueError, match="Data CSV parent directory does not exist"):
+        with pytest.raises(
+            ValueError, match="Data CSV parent directory does not exist"
+        ):
             config.validate()
 
     def test_ensure_dirs_creates_directories(self, tmp_path: Path) -> None:
@@ -195,6 +197,9 @@ class TestPathConfig:
         run_dir = config.get_run_dir("run-001")
         model_path = config.get_model_path("run-001", "AutoNHITS")
         log_path = config.get_log_path("run-001")
+        artifact_path = config.get_artifact_path("run-001", "metrics.json")
+        checkpoint_path = config.get_checkpoint_path("run-001", "epoch-1.ckpt")
+        plot_path = config.get_plot_path("run-001", "loss.png")
 
         assert run_dir.exists()
         assert run_dir.name == "run-001"
@@ -202,3 +207,38 @@ class TestPathConfig:
         assert model_path.name == "run-001_AutoNHITS.pth"
         assert log_path.parent == config.log_dir
         assert log_path.name == "run-001.jsonl"
+        assert artifact_path.parent == config.artifact_dir / "run-001"
+        assert artifact_path.parent.exists()
+        assert artifact_path.name == "metrics.json"
+        assert checkpoint_path.parent == config.checkpoint_dir / "run-001"
+        assert checkpoint_path.parent.exists()
+        assert checkpoint_path.name == "epoch-1.ckpt"
+        assert plot_path.parent == config.plot_dir / "run-001"
+        assert plot_path.parent.exists()
+        assert plot_path.name == "loss.png"
+
+    def test_run_specific_paths_respect_env_overrides(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Run-scoped directories should honour NF_* overrides."""
+        monkeypatch.setenv("NF_OUTPUT_DIR", str(tmp_path / "outputs"))
+        monkeypatch.setenv("NF_ARTIFACT_DIR", str(tmp_path / "custom_artifacts"))
+        monkeypatch.setenv("NF_CHECKPOINT_DIR", str(tmp_path / "custom_checkpoints"))
+        monkeypatch.setenv("NF_PLOT_DIR", str(tmp_path / "custom_plots"))
+
+        config = PathConfig.from_env()
+
+        artifact_path = config.get_artifact_path("run-xyz", "artifact.bin")
+        checkpoint_path = config.get_checkpoint_path("run-xyz", "model.ckpt")
+        plot_path = config.get_plot_path("run-xyz", "chart.png")
+
+        assert artifact_path == (
+            tmp_path / "custom_artifacts" / "run-xyz" / "artifact.bin"
+        )
+        assert checkpoint_path == (
+            tmp_path / "custom_checkpoints" / "run-xyz" / "model.ckpt"
+        )
+        assert plot_path == (tmp_path / "custom_plots" / "run-xyz" / "chart.png")
+        assert artifact_path.parent.exists()
+        assert checkpoint_path.parent.exists()
+        assert plot_path.parent.exists()
