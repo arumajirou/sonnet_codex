@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import shutil
-from pathlib import Path
 import sys
-from typing import Dict
+from pathlib import Path
 
 import pytest
 
@@ -149,7 +148,7 @@ class TestPathConfig:
             plot_dir=output_dir / "plots",
         )
 
-        config_dict: Dict[str, str] = config.to_dict()
+        config_dict: dict[str, str] = config.to_dict()
 
         assert config_dict["data_csv"] == str(tmp_path / "dataset" / "train.csv")
         assert config_dict["output_dir"] == str(output_dir)

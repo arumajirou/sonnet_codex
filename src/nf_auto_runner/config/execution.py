@@ -6,7 +6,7 @@ import multiprocessing
 import os
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional, Tuple, Type, TypeVar
+from typing import Any, TypeVar
 
 from .base import Config
 
@@ -25,7 +25,7 @@ def _parse_bool(value: Any) -> bool:
     raise TypeError(f"Cannot interpret {value!r} as boolean.")
 
 
-def _parse_optional_float(value: Any) -> Optional[float]:
+def _parse_optional_float(value: Any) -> float | None:
     """Parse optional float values allowing empty strings."""
     if value is None:
         return None
@@ -39,7 +39,7 @@ def _parse_optional_float(value: Any) -> Optional[float]:
     raise TypeError(f"Cannot interpret {value!r} as float.")
 
 
-def _parse_gpu_devices(value: Any) -> Optional[Tuple[int, ...]]:
+def _parse_gpu_devices(value: Any) -> tuple[int, ...] | None:
     """Parse GPU device identifiers from strings, lists or tuples."""
     if value is None:
         return None
@@ -53,7 +53,7 @@ def _parse_gpu_devices(value: Any) -> Optional[Tuple[int, ...]]:
     raise TypeError(f"Cannot interpret {value!r} as GPU devices.")
 
 
-def _parse_enum(enum_cls: Type[E], value: Any, field_name: str) -> E:
+def _parse_enum(enum_cls: type[E], value: Any, field_name: str) -> E:
     """Parse enum members from strings while accepting existing members."""
     if isinstance(value, enum_cls):
         return value
@@ -90,9 +90,9 @@ class ExecutionConfig(Config):
     mode: ExecutionMode
     n_workers: int
     backend: ParallelBackend
-    max_memory_gb: Optional[float]
+    max_memory_gb: float | None
     use_gpu: bool
-    gpu_devices: Optional[Tuple[int, ...]]
+    gpu_devices: tuple[int, ...] | None
     timeout_seconds: int
     max_retries: int
     log_level: str
@@ -106,7 +106,7 @@ class ExecutionConfig(Config):
         object.__setattr__(self, "gpu_devices", normalised_devices)
 
     @classmethod
-    def from_env(cls) -> "ExecutionConfig":
+    def from_env(cls) -> ExecutionConfig:
         """Construct configuration from environment variables."""
         mode = _parse_enum(
             ExecutionMode, os.getenv("EXECUTION_MODE", "development"), "mode"
@@ -139,7 +139,7 @@ class ExecutionConfig(Config):
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ExecutionConfig":
+    def from_dict(cls, data: dict[str, Any]) -> ExecutionConfig:
         """Construct configuration from dictionary data."""
         mode = _parse_enum(
             ExecutionMode, data.get("mode", ExecutionMode.DEVELOPMENT), "mode"
@@ -175,7 +175,7 @@ class ExecutionConfig(Config):
             random_seed=random_seed,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialise configuration into JSON-friendly dictionary."""
         return {
             "mode": self.mode.value,

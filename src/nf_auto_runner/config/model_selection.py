@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Iterable, List, Sequence
 
 from .base import Config
 
@@ -33,7 +33,7 @@ def _parse_bool(value: object, default: bool = False) -> bool:
     raise TypeError(f"Cannot interpret {value!r} as boolean.")
 
 
-def _parse_json_list(raw: str) -> List[str]:
+def _parse_json_list(raw: str) -> list[str]:
     """Parse JSON array strings into string lists, returning [] on failure."""
     try:
         payload = json.loads(raw)
@@ -44,7 +44,7 @@ def _parse_json_list(raw: str) -> List[str]:
     return []
 
 
-def _normalise_sequence(items: Sequence[str] | Iterable[str]) -> List[str]:
+def _normalise_sequence(items: Sequence[str] | Iterable[str]) -> list[str]:
     """Return a defensive copy of iterable items as strings."""
     return [str(item) for item in items]
 
@@ -59,8 +59,8 @@ class ModelSelectionConfig(Config):
     enable_auto_informer: bool
     enable_auto_autoformer: bool
     enable_auto_patchtst: bool
-    model_whitelist: List[str] = field(default_factory=list)
-    model_blacklist: List[str] = field(default_factory=list)
+    model_whitelist: list[str] = field(default_factory=list)
+    model_blacklist: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """Normalise whitelist/blacklist values after initialisation."""
@@ -70,7 +70,7 @@ class ModelSelectionConfig(Config):
         object.__setattr__(self, "model_blacklist", blacklist)
 
     @classmethod
-    def from_env(cls) -> "ModelSelectionConfig":
+    def from_env(cls) -> ModelSelectionConfig:
         """Construct configuration from environment variables."""
         whitelist_raw = os.getenv("MODEL_WHITELIST", "[]")
         blacklist_raw = os.getenv("MODEL_BLACKLIST", "[]")
@@ -122,7 +122,7 @@ class ModelSelectionConfig(Config):
                 f"Models appear in both whitelist and blacklist: {sorted(overlap)}"
             )
 
-    def get_enabled_models(self) -> List[str]:
+    def get_enabled_models(self) -> list[str]:
         """Return model identifiers that are enabled after filters are applied."""
         flag_map = {
             "AutoNHITS": self.enable_auto_nhits,
@@ -149,7 +149,7 @@ class ModelSelectionConfig(Config):
         """Return True if the given model name is enabled."""
         return model_name in self.get_enabled_models()
 
-    def get_disabled_models(self) -> List[str]:
+    def get_disabled_models(self) -> list[str]:
         """Return models that are not enabled, respecting filters."""
         all_models = list(_AUTO_MODEL_FLAGS.keys())
         enabled = set(self.get_enabled_models())

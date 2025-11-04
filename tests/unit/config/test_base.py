@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
-from pathlib import Path
 import sys
 import tempfile
-from typing import Any, Dict
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -28,7 +28,7 @@ class SampleConfig(Config):
     path_dir: Path
 
     @classmethod
-    def from_env(cls) -> "SampleConfig":
+    def from_env(cls) -> SampleConfig:
         """Construct configuration from environment variables."""
         value = int(os.getenv("SAMPLE_VALUE", "0"))
         path_raw = os.getenv("SAMPLE_PATH_DIR", "./runs")
@@ -55,7 +55,7 @@ class TestConfigBase:
 
     def test_from_dict_coerces_paths(self) -> None:
         """Path-like keys ending with _path or _dir become Path objects."""
-        data: Dict[str, Any] = {"value": 10, "path_dir": "/tmp/runs", "other": "keep"}
+        data: dict[str, Any] = {"value": 10, "path_dir": "/tmp/runs", "other": "keep"}
 
         config = SampleConfig.from_dict(data)
 

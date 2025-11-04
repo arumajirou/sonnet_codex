@@ -8,7 +8,6 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SUMMARY_FILE = REPO_ROOT / "logs" / "summary.md"
@@ -39,7 +38,7 @@ class SymbolInfo:
     start_line: int
     end_line: int
     kind: str
-    parent: Optional[str] = None
+    parent: str | None = None
 
     @property
     def display_name(self) -> str:
@@ -51,10 +50,10 @@ class SymbolInfo:
 class SymbolCollector(ast.NodeVisitor):
     """Collect classes, functions, and methods from a module AST."""
 
-    def __init__(self, *, lines: List[str]) -> None:
+    def __init__(self, *, lines: list[str]) -> None:
         self._lines = lines
-        self.symbols: List[SymbolInfo] = []
-        self._class_stack: List[str] = []
+        self.symbols: list[SymbolInfo] = []
+        self._class_stack: list[str] = []
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.symbols.append(
@@ -101,7 +100,7 @@ def _node_end_lineno(node: ast.AST) -> int:
     return end_lineno
 
 
-def _read_symbols(file_path: Path) -> Dict[str, SymbolInfo]:
+def _read_symbols(file_path: Path) -> dict[str, SymbolInfo]:
     source = file_path.read_text(encoding="utf-8")
     tree = ast.parse(source, filename=str(file_path))
     collector = SymbolCollector(lines=source.splitlines())
@@ -109,7 +108,7 @@ def _read_symbols(file_path: Path) -> Dict[str, SymbolInfo]:
     return {symbol.display_name: symbol for symbol in collector.symbols}
 
 
-def _normalise_remote_url(raw: str) -> Optional[str]:
+def _normalise_remote_url(raw: str) -> str | None:
     raw = raw.strip()
     if not raw:
         return None
@@ -126,7 +125,7 @@ def _normalise_remote_url(raw: str) -> Optional[str]:
     return None
 
 
-def _detect_remote_base() -> Optional[tuple[str, str]]:
+def _detect_remote_base() -> tuple[str, str] | None:
     try:
         remote_proc = subprocess.run(
             ["git", "remote", "get-url", "origin"],
@@ -191,8 +190,8 @@ def _format_span(symbol: SymbolInfo) -> str:
     return f"L{symbol.start_line}-L{symbol.end_line}"
 
 
-def _render_appendix(remote_ctx: Optional[tuple[str, str]]) -> List[str]:
-    lines: List[str] = ["### Appendix: exact locations", ""]
+def _render_appendix(remote_ctx: tuple[str, str] | None) -> list[str]:
+    lines: list[str] = ["### Appendix: exact locations", ""]
     for relative_path_str, config in TARGET_SYMBOLS.items():
         relative_path = Path(relative_path_str)
         file_path = REPO_ROOT / relative_path
@@ -241,7 +240,7 @@ def _render_appendix(remote_ctx: Optional[tuple[str, str]]) -> List[str]:
     return lines
 
 
-def _replace_appendix(existing_lines: List[str], new_section: List[str]) -> List[str]:
+def _replace_appendix(existing_lines: list[str], new_section: list[str]) -> list[str]:
     try:
         header_index = existing_lines.index("### Appendix: exact locations")
     except ValueError as exc:

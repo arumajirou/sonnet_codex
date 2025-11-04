@@ -9,19 +9,18 @@ import socket
 import sys
 import threading
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from multiprocessing import current_process
 from pathlib import Path
-from typing import Any, Dict, Iterator, Optional, TextIO
-
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TextIO
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from ..config.path import PathConfig
 
-_LEVEL_MAP: Dict[str, int] = {
+_LEVEL_MAP: dict[str, int] = {
     "DEBUG": 10,
     "INFO": 20,
     "WARNING": 30,
@@ -38,12 +37,12 @@ class StructuredLogEntry:
     level: str
     logger: str
     message: str
-    attributes: Dict[str, Any] = field(default_factory=dict)
-    context: Dict[str, Any] = field(default_factory=dict)
+    attributes: dict[str, Any] = field(default_factory=dict)
+    context: dict[str, Any] = field(default_factory=dict)
 
     def to_json(self) -> str:
         """Return JSON representation compliant with project requirements."""
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "timestamp": self.timestamp,
             "level": self.level,
             "logger": self.logger,
@@ -59,18 +58,18 @@ class StructuredLogEntry:
 class LogContext:
     """Manage per-execution logging context shared across entries."""
 
-    _correlation_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    _correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
         "correlation_id", default=None
     )
-    _run_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    _run_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
         "run_id", default=None
     )
-    _user_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    _user_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
         "user_id", default=None
     )
 
     @staticmethod
-    def set_correlation_id(correlation_id: Optional[str] = None) -> str:
+    def set_correlation_id(correlation_id: str | None = None) -> str:
         """Set correlation identifier, generating one when absent."""
         if correlation_id is None:
             correlation_id = uuid4()
@@ -78,7 +77,7 @@ class LogContext:
         return correlation_id
 
     @staticmethod
-    def get_correlation_id() -> Optional[str]:
+    def get_correlation_id() -> str | None:
         """Return currently active correlation identifier."""
         return LogContext._correlation_id.get()
 
@@ -88,7 +87,7 @@ class LogContext:
         LogContext._run_id.set(run_id)
 
     @staticmethod
-    def get_run_id() -> Optional[str]:
+    def get_run_id() -> str | None:
         """Retrieve run identifier stored in the context."""
         return LogContext._run_id.get()
 
@@ -98,14 +97,14 @@ class LogContext:
         LogContext._user_id.set(user_id)
 
     @staticmethod
-    def get_user_id() -> Optional[str]:
+    def get_user_id() -> str | None:
         """Return user identifier from the context."""
         return LogContext._user_id.get()
 
     @staticmethod
-    def get_context() -> Dict[str, Any]:
+    def get_context() -> dict[str, Any]:
         """Provide a shallow copy of active context values."""
-        context: Dict[str, Any] = {}
+        context: dict[str, Any] = {}
 
         if (correlation_id := LogContext.get_correlation_id()) is not None:
             context["correlation_id"] = correlation_id
@@ -132,11 +131,11 @@ class StructuredLogger:
         name: str,
         *,
         level: str = "INFO",
-        log_file: Optional[Path] = None,
+        log_file: Path | None = None,
         log_to_console: bool = True,
         log_to_file: bool = True,
         add_context: bool = True,
-        base_context: Optional[Dict[str, Any]] = None,
+        base_context: dict[str, Any] | None = None,
         stream: TextIO = sys.stdout,
     ) -> None:
         self.name = name
@@ -159,13 +158,13 @@ class StructuredLogger:
         name: str,
         *,
         level: str = "INFO",
-        log_file: Optional[Path] = None,
+        log_file: Path | None = None,
         log_to_console: bool = True,
         log_to_file: bool = True,
         add_context: bool = True,
         stream: TextIO = sys.stdout,
         **initial_context: Any,
-    ) -> "StructuredLogger":
+    ) -> StructuredLogger:
         """Factory returning logger with optional initial context."""
         return cls(
             name,
@@ -182,7 +181,7 @@ class StructuredLogger:
     def for_run(
         cls,
         name: str,
-        path_config: "PathConfig",
+        path_config: PathConfig,
         run_id: str,
         *,
         level: str = "INFO",
@@ -191,7 +190,7 @@ class StructuredLogger:
         add_context: bool = True,
         stream: TextIO = sys.stdout,
         **additional_context: Any,
-    ) -> "StructuredLogger":
+    ) -> StructuredLogger:
         """Create logger targeting the JSONL file allocated for a run."""
         log_path = path_config.get_log_path(run_id)
         base_context = {"run_id": run_id}
@@ -212,9 +211,9 @@ class StructuredLogger:
         level: str,
         message: str,
         *,
-        run_id: Optional[str] = None,
-        experiment_id: Optional[str] = None,
-        extra: Optional[Dict[str, Any]] = None,
+        run_id: str | None = None,
+        experiment_id: str | None = None,
+        extra: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """Emit log entry at specified level with structured payload."""
@@ -224,7 +223,7 @@ class StructuredLogger:
         if _LEVEL_MAP[level_name] < self._level_threshold:
             return
 
-        attributes: Dict[str, Any] = {}
+        attributes: dict[str, Any] = {}
         if self._base_context:
             attributes.update(self._base_context)
 
@@ -243,13 +242,13 @@ class StructuredLogger:
         if kwargs:
             attributes.update(kwargs)
 
-        top_level: Dict[str, Any] = {
+        top_level: dict[str, Any] = {
             key: value
             for key, value in attributes.items()
             if value is not None and key != "context"
         }
 
-        context_payload: Dict[str, Any] = {}
+        context_payload: dict[str, Any] = {}
         if self._add_context:
             context_payload.update(_runtime_context())
         if extra_context:
@@ -315,12 +314,12 @@ class StructuredLogger:
 
 def _current_timestamp() -> str:
     """Return current UTC timestamp in ISO 8601 format."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
-def _runtime_context() -> Dict[str, Any]:
+def _runtime_context() -> dict[str, Any]:
     """Collect runtime diagnostics for log context."""
-    context: Dict[str, Any] = {
+    context: dict[str, Any] = {
         "hostname": socket.gethostname(),
         "pid": os.getpid(),
         "process_name": current_process().name,
@@ -333,7 +332,7 @@ def _runtime_context() -> Dict[str, Any]:
     return context
 
 
-def _detect_gpu_id() -> Optional[int]:
+def _detect_gpu_id() -> int | None:
     """Best-effort detection of active CUDA device."""
     try:
         import torch

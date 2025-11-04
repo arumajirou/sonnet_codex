@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
-from typing import Any, Dict, Optional, Type, TypeVar, get_type_hints
-import json
+from typing import Any, TypeVar, get_type_hints
 
 T = TypeVar("T", bound="Config")
 
@@ -17,13 +17,13 @@ class Config(ABC):
 
     @classmethod
     @abstractmethod
-    def from_env(cls: Type[T]) -> T:
+    def from_env(cls: type[T]) -> T:
         """Construct configuration from environment variables."""
 
     @classmethod
-    def from_dict(cls: Type[T], data: Dict[str, Any]) -> T:
+    def from_dict(cls: type[T], data: dict[str, Any]) -> T:
         """Construct configuration from dictionary data."""
-        converted: Dict[str, Any] = {}
+        converted: dict[str, Any] = {}
         dataclass_fields = (
             {field.name: field for field in fields(cls)}
             if hasattr(cls, "__dataclass_fields__")
@@ -43,7 +43,7 @@ class Config(ABC):
         return cls(**converted)
 
     @classmethod
-    def from_json(cls: Type[T], json_str: str) -> T:
+    def from_json(cls: type[T], json_str: str) -> T:
         """Construct configuration from JSON string."""
         payload = json.loads(json_str)
         if not isinstance(payload, dict):
@@ -51,7 +51,7 @@ class Config(ABC):
         return cls.from_dict(payload)
 
     @classmethod
-    def from_json_file(cls: Type[T], file_path: Path) -> T:
+    def from_json_file(cls: type[T], file_path: Path) -> T:
         """Construct configuration from JSON file located at `file_path`."""
         path_obj = Path(file_path)
         with path_obj.open("r", encoding="utf-8") as file_handle:
@@ -60,9 +60,9 @@ class Config(ABC):
     def validate(self) -> None:
         """Validate configuration fields."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Return configuration as dictionary."""
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         for key, value in asdict(self).items():
             if isinstance(value, Path):
                 result[key] = str(value)
@@ -70,11 +70,11 @@ class Config(ABC):
                 result[key] = value
         return result
 
-    def to_json(self, indent: Optional[int] = 2) -> str:
+    def to_json(self, indent: int | None = 2) -> str:
         """Serialize configuration to JSON string."""
         return json.dumps(self.to_dict(), indent=indent, ensure_ascii=False)
 
-    def save_to_file(self, file_path: Path, indent: Optional[int] = 2) -> None:
+    def save_to_file(self, file_path: Path, indent: int | None = 2) -> None:
         """Persist configuration to JSON file."""
         path_obj = Path(file_path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 from .base import Config
 
@@ -37,7 +37,7 @@ class PathConfig(Config):
         self.ensure_dirs()
 
     @classmethod
-    def from_env(cls) -> "PathConfig":
+    def from_env(cls) -> PathConfig:
         """Build configuration from environment variables."""
         project_root = Path(__file__).resolve().parent.parent
         output_dir = _env_path("NF_OUTPUT_DIR", Path("./nf_auto_runs"))

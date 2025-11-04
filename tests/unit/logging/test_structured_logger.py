@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import io
+import json
 import sys
 from pathlib import Path
-from typing import Dict
 
 import pytest
 
@@ -22,7 +21,7 @@ def reset_log_context() -> None:
     LogContext.clear()
 
 
-def _read_single_entry(log_file: Path) -> Dict[str, object]:
+def _read_single_entry(log_file: Path) -> dict[str, object]:
     contents = log_file.read_text(encoding="utf-8").strip().splitlines()
     assert len(contents) == 1, contents
     return json.loads(contents[0])

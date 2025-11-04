@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Type
 
 from .base import Config
 from .execution import ExecutionConfig
@@ -20,9 +19,9 @@ class ConfigLoader:
 
     def __init__(self) -> None:
         """Initialise empty configuration store."""
-        self.configs: Dict[Type[Config], Config] = {}
+        self.configs: dict[type[Config], Config] = {}
 
-    def load_all(self) -> Dict[str, Config]:
+    def load_all(self) -> dict[str, Config]:
         """Load all canonical configurations from environment variables."""
         logger.info("Loading all configurations from environment")
 
@@ -52,7 +51,7 @@ class ConfigLoader:
             logger.error("Failed to load configurations: %s", exc)
             raise ValueError(f"Configuration loading failed: {exc}") from exc
 
-    def load_from_file(self, file_path: Path) -> Dict[str, Config]:
+    def load_from_file(self, file_path: Path) -> dict[str, Config]:
         """Load configurations from a JSON file."""
         path_obj = Path(file_path)
         logger.info("Loading configurations from file: %s", path_obj)
@@ -63,7 +62,7 @@ class ConfigLoader:
         with path_obj.open("r", encoding="utf-8") as handle:
             data = json.load(handle)
 
-        loaded: Dict[str, Config] = {}
+        loaded: dict[str, Config] = {}
 
         if "path" in data:
             path_config = PathConfig.from_dict(data["path"])
@@ -88,7 +87,7 @@ class ConfigLoader:
         logger.info("Loaded %s configurations from %s", len(loaded), path_obj)
         return loaded
 
-    def merge_configs(self, configs: List[Config], *, strategy: str = "last") -> Config:
+    def merge_configs(self, configs: list[Config], *, strategy: str = "last") -> Config:
         """Merge configurations of the same type using the requested strategy."""
         if not configs:
             raise ValueError("No configs to merge.")
@@ -112,9 +111,9 @@ class ConfigLoader:
         )
         return merged
 
-    def validate_all(self, configs: Optional[Dict[str, Config | None]] = None) -> bool:
+    def validate_all(self, configs: dict[str, Config | None] | None = None) -> bool:
         """Validate the provided configurations, defaulting to the internal set."""
-        working: Dict[str, Config | None]
+        working: dict[str, Config | None]
         if configs is None:
             working = {
                 "path": self.configs.get(PathConfig),
@@ -124,7 +123,7 @@ class ConfigLoader:
         else:
             working = configs
 
-        errors: List[str] = []
+        errors: list[str] = []
         for name, config in working.items():
             if config is None:
                 errors.append(f"{name}: config is None")
@@ -142,7 +141,7 @@ class ConfigLoader:
         logger.info("All configurations validated successfully")
         return True
 
-    def get(self, config_type: Type[Config]) -> Config:
+    def get(self, config_type: type[Config]) -> Config:
         """Return a configuration instance keyed by its class."""
         if config_type not in self.configs:
             raise KeyError(f"Configuration not loaded: {config_type.__name__}")
@@ -162,9 +161,9 @@ class ConfigLoader:
 
         logger.info("Saved %s configurations to %s", len(serialised), path_obj)
 
-    def _serialise_loaded(self) -> Dict[str, Dict[str, object]]:
+    def _serialise_loaded(self) -> dict[str, dict[str, object]]:
         """Return serialised payload for currently loaded configurations."""
-        payload: Dict[str, Dict[str, object]] = {}
+        payload: dict[str, dict[str, object]] = {}
 
         if PathConfig in self.configs:
             payload["path"] = self.configs[PathConfig].to_dict()

@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import multiprocessing
-from pathlib import Path
 import sys
-from typing import Dict
+from pathlib import Path
 
 import pytest
 
@@ -241,7 +240,7 @@ class TestExecutionConfig:
             random_seed=9,
         )
 
-        config_dict: Dict[str, object] = config.to_dict()
+        config_dict: dict[str, object] = config.to_dict()
 
         assert config_dict["mode"] == "staging"
         assert config_dict["n_workers"] == 3
