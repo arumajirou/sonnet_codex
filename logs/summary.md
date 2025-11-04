@@ -18,12 +18,17 @@
 ### Appendix: exact locations
 
 - `src/nf_auto_runner/config/model_selection.py` (total 156 lines)
-  - ModelSelectionConfig: L53–L156
-  - get_enabled_models: not found
-  - is_model_enabled: not found
-  - get_disabled_models: not found
+  - ModelSelectionConfig: L53-L156
+  - ModelSelectionConfig.get_enabled_models: L125-L146
+  - ModelSelectionConfig.is_model_enabled: L148-L150
+  - ModelSelectionConfig.get_disabled_models: L152-L156
 
 - `src/nf_auto_runner/config/loader.py` (total 176 lines)
-  - ConfigLoader: L18–L176
+  - ConfigLoader: L18-L176
 
-_generated at 2025-11-04 21:31:48_
+_generated at 2025-11-04 21:36:57_
+Push result: origin remote missing; wrote guidance to `logs/push_instructions.md`.
+Automation update:
+- Untrack sweep re-ran; no tracked artifacts remained after cleanup.
+- `make -k ci` exited early because `black --check` reported `tools/update_summary_locations.py` would be reformatted.
+- push: origin not set; wrote logs/push_instructions.md.
