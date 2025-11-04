@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.home/
+nf_auto_runs/
+tmp/
+logs/*.log
+!logs/plan.md
+!logs/summary.md
+*.zip
+!doc/sonnet_codex_headless_pack.zip
+!sonnet_codex_headless_pack.zip
