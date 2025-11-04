@@ -144,3 +144,10 @@ clean: ## キャッシュとカバレッジ成果物の掃除
 clean-all: clean ## 追加で NF/Codex 一時成果を掃除
 	rm -rf nf_auto_runs/tmp || true
 	rm -rf "$(CODEX_HOME)" "$(CODEX_STATE_HOME)" "$(CODEX_CACHE_HOME)" "$(CODEX_DATA_HOME)" "$(CODEX_OUT_DIR)" || true
+# 追記例
+.PHONY: codex-auth
+codex-auth:
+	@test -n "$$OPENAI_API_KEY" || { echo "OPENAI_API_KEY が未設定"; exit 1; }
+	$(CODEX) login --api-key "$$OPENAI_API_KEY"
+
+
