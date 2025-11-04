@@ -1,0 +1,11 @@
+# Dev/test tools
+ruff>=0.14
+black>=24
+pytest>=8
+pytest-cov>=4
+mypy>=1.10
+build>=1.2
+# プロジェクトの data 依存を dev 環境で確実に使いたい場合
+pandas>=2.0
+pyarrow>=14
+chardet>=5

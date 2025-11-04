@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from importlib import import_module
 from pathlib import Path
 from typing import Any, cast
 
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 
 _chardet: Any
 try:  # pragma: no cover - optional dependency
@@ -148,8 +148,13 @@ class DataLoader:
             encoding = "utf-8"
         else:
             detection = chardet.detect(raw_data)
-            encoding = detection.get("encoding")
-            confidence = detection.get("confidence", 0.0) or 0.0
+            encoding_candidate = detection.get("encoding")
+            confidence_raw = detection.get("confidence", 0.0)
+            confidence = float(confidence_raw or 0.0)
+            if isinstance(encoding_candidate, str) and encoding_candidate:
+                encoding = encoding_candidate
+            else:
+                encoding = "utf-8"
 
             logger.debug(
                 "Encoding detection for %s: encoding=%s confidence=%.2f",
@@ -158,7 +163,7 @@ class DataLoader:
                 confidence,
             )
 
-            if not encoding or confidence < MIN_ENCODING_CONFIDENCE:
+            if confidence < MIN_ENCODING_CONFIDENCE:
                 logger.warning(
                     "Low confidence encoding detection for %s "
                     "(confidence %.2f). Falling back to utf-8.",
@@ -201,16 +206,15 @@ class DataLoader:
             )
 
     @staticmethod
-    def _materialise_chunks(
-        data: pd.DataFrame | Iterator[pd.DataFrame],
-    ) -> pd.DataFrame:
+    def _materialise_chunks(data: object) -> pd.DataFrame:
         if isinstance(data, pd.DataFrame):
             return data
         if isinstance(data, Iterator):
-            chunks = list(data)
+            chunks: list[pd.DataFrame] = list(data)
             if not chunks:
                 return pd.DataFrame()
             return pd.concat(chunks, ignore_index=True)
         if hasattr(data, "__iter__"):
-            return pd.concat(list(data), ignore_index=True)
-        return pd.DataFrame(data)  # pragma: no cover - defensive fallback
+            iterable = cast(Iterable[pd.DataFrame], data)
+            return pd.concat(list(iterable), ignore_index=True)
+        return pd.DataFrame(cast(Any, data))  # pragma: no cover - defensive fallback

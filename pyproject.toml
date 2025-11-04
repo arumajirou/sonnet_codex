@@ -8,8 +8,8 @@ version = "0.1.0"
 description = "Automation helpers and utilities for neural forecast runners"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
-authors = [{ name = "arumajirou" }]
+license = {text = "MIT"}
+authors = [{name = "arumajirou"}]
 keywords = ["neuralforecast", "automation", "timeseries", "ml"]
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -17,15 +17,22 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 
-# ランタイム必須は最小限（重いものは requirements.txt 管理）
+# ランタイム最小依存（重いものは extras / requirements.txt で管理）
 dependencies = []
 
+[project.optional-dependencies]
+data = ["pandas>=2.0", "pyarrow>=14", "chardet>=5"]
+dev = ["ruff>=0.14", "black>=24", "pytest>=8", "pytest-cov>=4", "mypy>=1.10", "build>=1.2"]
+
 [tool.setuptools]
-package-dir = { "" = "src" }
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["nf_auto_runner*"]
+
+[tool.setuptools.package-data]
+"nf_auto_runner" = ["py.typed"]
 
 [tool.ruff]
 line-length = 100
@@ -37,3 +44,17 @@ ignore = ["E203"]
 [tool.black]
 line-length = 100
 target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+# 初期導入は緩め（段階的に厳格化）
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+no_implicit_optional = false
+check_untyped_defs = false
+disallow_untyped_defs = false
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "src"
