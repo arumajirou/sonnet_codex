@@ -98,9 +98,9 @@ verify: ## プロジェクト独自の検証
 	 ./scripts/verify.sh
 
 ci: ## CIゲート（lint→test→verify）
-	@$(MAKE) lint
-	@$(MAKE) test
-	@$(MAKE) verify
+	$(MAKE) lint
+	$(MAKE) test
+	$(MAKE) verify
 
 smoke: ## (任意) NF最小スモーク。ファイルが無ければスキップ
 	@if [ "$(NF_SMOKE)" = "1" ] && [ -f "$(NF_SMOKE_ENTRY)" ]; then \
@@ -154,5 +154,4 @@ clean-all: clean ## 追加で NF/Codex 一時成果を掃除
 codex-auth:
 	@test -n "$$OPENAI_API_KEY" || { echo "OPENAI_API_KEY が未設定"; exit 1; }
 	$(CODEX) login --api-key "$$OPENAI_API_KEY"
-
 
