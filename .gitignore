@@ -7,5 +7,6 @@ logs/*.log
 !logs/plan.md
 !logs/summary.md
 *.zip
+# keep required headless packs tracked
 !doc/sonnet_codex_headless_pack.zip
 !sonnet_codex_headless_pack.zip
