@@ -1,20 +1,40 @@
-"""Execution configuration for controlling runtime behaviour."""
+"""Execution configuration describing runtime behaviour."""
 
 from __future__ import annotations
 
-import multiprocessing
 import os
 from dataclasses import dataclass
-from enum import Enum
-from typing import Any, TypeVar
+from typing import Any
 
 from .base import Config
 
+_DEFAULTS: dict[str, Any] = {
+    "random_state": 42,
+    "trial_num_samples": 10,
+    "trial_max_steps": 1000,
+    "default_h": 7,
+    "h_ratio": 0.2,
+    "max_workers": 4,
+    "allow_ray_parallel": False,
+    "save_model": True,
+    "overwrite_model": False,
+    "dir_tokens_maxlen": 50,
+    "max_exog_futr": 10,
+    "max_exog_hist": 10,
+    "max_exog_stat": 5,
+    "early_stopping_patience": 10,
+    "gradient_clip_val": 1.0,
+    "accelerator": "auto",
+    "devices": 1,
+    "precision": "32",
+}
+
 _TRUE_VALUES = {"1", "true", "yes", "on"}
-E = TypeVar("E", bound=Enum)
+_VALID_ACCELERATORS = {"auto", "cpu", "cuda", "mps", "tpu"}
+_VALID_PRECISIONS = {"32", "16", "bf16"}
 
 
-def _parse_bool(value: Any) -> bool:
+def _parse_bool(value: Any, field_name: str) -> bool:
     """Convert diverse truthy representations into a boolean."""
     if isinstance(value, bool):
         return value
@@ -22,204 +42,219 @@ def _parse_bool(value: Any) -> bool:
         return bool(value)
     if isinstance(value, str):
         return value.strip().lower() in _TRUE_VALUES
-    raise TypeError(f"Cannot interpret {value!r} as boolean.")
+    raise TypeError(f"{field_name} must be castable to bool, got {value!r}.")
 
 
-def _parse_optional_float(value: Any) -> float | None:
-    """Parse optional float values allowing empty strings."""
-    if value is None:
-        return None
-    if isinstance(value, (float, int)):
+def _parse_int(value: Any, field_name: str) -> int:
+    """Parse integer values while raising descriptive errors."""
+    try:
+        if isinstance(value, bool):
+            raise TypeError
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise TypeError(f"{field_name} must be an integer, got {value!r}.") from exc
+
+
+def _parse_float(value: Any, field_name: str) -> float:
+    """Parse float values while raising descriptive errors."""
+    try:
+        if isinstance(value, bool):
+            raise TypeError
         return float(value)
+    except (TypeError, ValueError) as exc:
+        raise TypeError(f"{field_name} must be a float, got {value!r}.") from exc
+
+
+def _parse_h_ratio(value: Any) -> float:
+    """Parse forecasting horizon ratio."""
+    parsed = _parse_float(value, "h_ratio")
+    return parsed
+
+
+def _normalise_precision(value: Any) -> str:
+    """Normalise precision values into canonical string representation."""
     if isinstance(value, str):
-        stripped = value.strip()
-        if not stripped:
-            return None
-        return float(stripped)
-    raise TypeError(f"Cannot interpret {value!r} as float.")
+        return value.strip().lower()
+    return str(value).lower()
 
 
-def _parse_gpu_devices(value: Any) -> tuple[int, ...] | None:
-    """Parse GPU device identifiers from strings, lists or tuples."""
-    if value is None:
-        return None
+def _normalise_accelerator(value: Any) -> str:
+    """Normalise accelerator names to lower-case strings."""
     if isinstance(value, str):
-        tokens = [token.strip() for token in value.split(",") if token.strip()]
-        if not tokens:
-            return None
-        return tuple(int(token) for token in tokens)
-    if isinstance(value, (list, tuple)):
-        return tuple(int(token) for token in value)
-    raise TypeError(f"Cannot interpret {value!r} as GPU devices.")
-
-
-def _parse_enum(enum_cls: type[E], value: Any, field_name: str) -> E:
-    """Parse enum members from strings while accepting existing members."""
-    if isinstance(value, enum_cls):
-        return value
-    if isinstance(value, str):
-        normalised = value.strip().lower()
-        for member in enum_cls:
-            if member.value == normalised:
-                return member
-    raise ValueError(f"Invalid {field_name}: {value!r}")
-
-
-class ExecutionMode(Enum):
-    """Supported execution environments."""
-
-    DEVELOPMENT = "development"
-    STAGING = "staging"
-    PRODUCTION = "production"
-
-
-class ParallelBackend(Enum):
-    """Parallel execution backends."""
-
-    SEQUENTIAL = "sequential"
-    THREADING = "threading"
-    MULTIPROCESSING = "multiprocessing"
-    DASK = "dask"
-    RAY = "ray"
+        return value.strip().lower()
+    return str(value).lower()
 
 
 @dataclass(frozen=True)
 class ExecutionConfig(Config):
     """Runtime configuration describing execution characteristics."""
 
-    mode: ExecutionMode
-    n_workers: int
-    backend: ParallelBackend
-    max_memory_gb: float | None
-    use_gpu: bool
-    gpu_devices: tuple[int, ...] | None
-    timeout_seconds: int
-    max_retries: int
-    log_level: str
-    debug: bool
-    random_seed: int
+    random_state: int
+    trial_num_samples: int
+    trial_max_steps: int
+    default_h: int
+    h_ratio: float
+    max_workers: int
+    allow_ray_parallel: bool
+    save_model: bool
+    overwrite_model: bool
+    dir_tokens_maxlen: int
+    max_exog_futr: int
+    max_exog_hist: int
+    max_exog_stat: int
+    early_stopping_patience: int
+    gradient_clip_val: float
+    accelerator: str
+    devices: int
+    precision: str
 
     def __post_init__(self) -> None:
         """Normalise derived attributes for consistent behaviour."""
-        object.__setattr__(self, "log_level", self.log_level.upper())
-        normalised_devices = _parse_gpu_devices(self.gpu_devices)
-        object.__setattr__(self, "gpu_devices", normalised_devices)
+        accelerator = _normalise_accelerator(self.accelerator)
+        precision = _normalise_precision(self.precision)
+        object.__setattr__(self, "accelerator", accelerator)
+        object.__setattr__(self, "precision", precision)
+
+    @classmethod
+    def _merge_defaults(cls, overrides: dict[str, Any]) -> dict[str, Any]:
+        """Merge overrides with class defaults."""
+        payload = {**_DEFAULTS, **(overrides or {})}
+        return payload
 
     @classmethod
     def from_env(cls) -> ExecutionConfig:
         """Construct configuration from environment variables."""
-        mode = _parse_enum(
-            ExecutionMode, os.getenv("EXECUTION_MODE", "development"), "mode"
-        )
-        backend = _parse_enum(
-            ParallelBackend, os.getenv("PARALLEL_BACKEND", "multiprocessing"), "backend"
-        )
-        n_workers = int(os.getenv("N_WORKERS", str(multiprocessing.cpu_count())))
-        max_memory_gb = _parse_optional_float(os.getenv("MAX_MEMORY_GB"))
-        use_gpu = _parse_bool(os.getenv("USE_GPU", "false"))
-        gpu_devices = _parse_gpu_devices(os.getenv("GPU_DEVICES"))
-        timeout_seconds = int(os.getenv("TIMEOUT_SECONDS", "3600"))
-        max_retries = int(os.getenv("MAX_RETRIES", "3"))
-        log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-        debug = _parse_bool(os.getenv("DEBUG", "false"))
-        random_seed = int(os.getenv("RANDOM_SEED", "42"))
-
-        return cls(
-            mode=mode,
-            n_workers=n_workers,
-            backend=backend,
-            max_memory_gb=max_memory_gb,
-            use_gpu=use_gpu,
-            gpu_devices=gpu_devices,
-            timeout_seconds=timeout_seconds,
-            max_retries=max_retries,
-            log_level=log_level,
-            debug=debug,
-            random_seed=random_seed,
-        )
+        env_payload: dict[str, Any] = {
+            "random_state": os.getenv("RANDOM_STATE", _DEFAULTS["random_state"]),
+            "trial_num_samples": os.getenv(
+                "TRIAL_NUM_SAMPLES", _DEFAULTS["trial_num_samples"]
+            ),
+            "trial_max_steps": os.getenv(
+                "TRIAL_MAX_STEPS", _DEFAULTS["trial_max_steps"]
+            ),
+            "default_h": os.getenv("DEFAULT_H", _DEFAULTS["default_h"]),
+            "h_ratio": os.getenv("H_RATIO", _DEFAULTS["h_ratio"]),
+            "max_workers": os.getenv("MAX_WORKERS", _DEFAULTS["max_workers"]),
+            "allow_ray_parallel": os.getenv(
+                "ALLOW_RAY_PARALLEL", str(_DEFAULTS["allow_ray_parallel"]).lower()
+            ),
+            "save_model": os.getenv("SAVE_MODEL", str(_DEFAULTS["save_model"]).lower()),
+            "overwrite_model": os.getenv(
+                "OVERWRITE_MODEL", str(_DEFAULTS["overwrite_model"]).lower()
+            ),
+            "dir_tokens_maxlen": os.getenv(
+                "DIR_TOKENS_MAXLEN", _DEFAULTS["dir_tokens_maxlen"]
+            ),
+            "max_exog_futr": os.getenv("MAX_EXOG_FUTR", _DEFAULTS["max_exog_futr"]),
+            "max_exog_hist": os.getenv("MAX_EXOG_HIST", _DEFAULTS["max_exog_hist"]),
+            "max_exog_stat": os.getenv("MAX_EXOG_STAT", _DEFAULTS["max_exog_stat"]),
+            "early_stopping_patience": os.getenv(
+                "EARLY_STOPPING_PATIENCE", _DEFAULTS["early_stopping_patience"]
+            ),
+            "gradient_clip_val": os.getenv(
+                "GRADIENT_CLIP_VAL", _DEFAULTS["gradient_clip_val"]
+            ),
+            "accelerator": os.getenv("ACCELERATOR", _DEFAULTS["accelerator"]),
+            "devices": os.getenv("DEVICES", _DEFAULTS["devices"]),
+            "precision": os.getenv("PRECISION", _DEFAULTS["precision"]),
+        }
+        return cls._from_mapping(env_payload)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ExecutionConfig:
         """Construct configuration from dictionary data."""
-        mode = _parse_enum(
-            ExecutionMode, data.get("mode", ExecutionMode.DEVELOPMENT), "mode"
-        )
-        backend = _parse_enum(
-            ParallelBackend,
-            data.get("backend", ParallelBackend.MULTIPROCESSING),
-            "backend",
-        )
-        n_workers = int(data.get("n_workers", multiprocessing.cpu_count()))
-        max_memory_gb = _parse_optional_float(data.get("max_memory_gb"))
-        use_gpu = _parse_bool(data.get("use_gpu", False))
-        gpu_devices = _parse_gpu_devices(data.get("gpu_devices"))
-        timeout_seconds = int(data.get("timeout_seconds", 3600))
-        max_retries = int(data.get("max_retries", 3))
-        log_level_raw = data.get("log_level", "INFO")
-        if not isinstance(log_level_raw, str):
-            raise TypeError("log_level must be a string.")
-        debug = _parse_bool(data.get("debug", False))
-        random_seed = int(data.get("random_seed", 42))
+        payload = cls._merge_defaults(data)
+        return cls._from_mapping(payload)
 
+    @classmethod
+    def _from_mapping(cls, payload: dict[str, Any]) -> ExecutionConfig:
+        """Internal helper to build configuration from arbitrary mapping."""
         return cls(
-            mode=mode,
-            n_workers=n_workers,
-            backend=backend,
-            max_memory_gb=max_memory_gb,
-            use_gpu=use_gpu,
-            gpu_devices=gpu_devices,
-            timeout_seconds=timeout_seconds,
-            max_retries=max_retries,
-            log_level=log_level_raw,
-            debug=debug,
-            random_seed=random_seed,
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialise configuration into JSON-friendly dictionary."""
-        return {
-            "mode": self.mode.value,
-            "n_workers": self.n_workers,
-            "backend": self.backend.value,
-            "max_memory_gb": self.max_memory_gb,
-            "use_gpu": self.use_gpu,
-            "gpu_devices": (
-                list(self.gpu_devices) if self.gpu_devices is not None else None
+            random_state=_parse_int(payload["random_state"], "random_state"),
+            trial_num_samples=_parse_int(
+                payload["trial_num_samples"], "trial_num_samples"
             ),
-            "timeout_seconds": self.timeout_seconds,
-            "max_retries": self.max_retries,
-            "log_level": self.log_level,
-            "debug": self.debug,
-            "random_seed": self.random_seed,
-        }
+            trial_max_steps=_parse_int(payload["trial_max_steps"], "trial_max_steps"),
+            default_h=_parse_int(payload["default_h"], "default_h"),
+            h_ratio=_parse_h_ratio(payload["h_ratio"]),
+            max_workers=_parse_int(payload["max_workers"], "max_workers"),
+            allow_ray_parallel=_parse_bool(
+                payload["allow_ray_parallel"], "allow_ray_parallel"
+            ),
+            save_model=_parse_bool(payload["save_model"], "save_model"),
+            overwrite_model=_parse_bool(payload["overwrite_model"], "overwrite_model"),
+            dir_tokens_maxlen=_parse_int(
+                payload["dir_tokens_maxlen"], "dir_tokens_maxlen"
+            ),
+            max_exog_futr=_parse_int(payload["max_exog_futr"], "max_exog_futr"),
+            max_exog_hist=_parse_int(payload["max_exog_hist"], "max_exog_hist"),
+            max_exog_stat=_parse_int(payload["max_exog_stat"], "max_exog_stat"),
+            early_stopping_patience=_parse_int(
+                payload["early_stopping_patience"], "early_stopping_patience"
+            ),
+            gradient_clip_val=_parse_float(
+                payload["gradient_clip_val"], "gradient_clip_val"
+            ),
+            accelerator=_normalise_accelerator(payload["accelerator"]),
+            devices=_parse_int(payload["devices"], "devices"),
+            precision=_normalise_precision(payload["precision"]),
+        )
 
     def validate(self) -> None:
         """Validate configuration values for runtime safety."""
-        if self.n_workers <= 0:
-            raise ValueError(f"n_workers must be > 0, got {self.n_workers}")
+        if self.random_state < 0:
+            raise ValueError(f"random_state must be non-negative: {self.random_state}")
 
-        if self.max_memory_gb is not None and self.max_memory_gb <= 0:
-            raise ValueError(f"max_memory_gb must be > 0, got {self.max_memory_gb}")
+        positive_fields: dict[str, int] = {
+            "trial_num_samples": self.trial_num_samples,
+            "trial_max_steps": self.trial_max_steps,
+            "default_h": self.default_h,
+            "max_workers": self.max_workers,
+            "dir_tokens_maxlen": self.dir_tokens_maxlen,
+            "devices": self.devices,
+        }
+        for field, value in positive_fields.items():
+            if value < 1:
+                raise ValueError(f"{field} must be >= 1: {value}")
 
-        if self.timeout_seconds <= 0:
-            raise ValueError(f"timeout_seconds must be > 0, got {self.timeout_seconds}")
+        if not 0 < self.h_ratio <= 1.0:
+            raise ValueError(f"h_ratio must be in (0, 1]: {self.h_ratio}")
 
-        if self.max_retries < 0:
-            raise ValueError(f"max_retries must be >= 0, got {self.max_retries}")
+        non_negative_fields: dict[str, int] = {
+            "max_exog_futr": self.max_exog_futr,
+            "max_exog_hist": self.max_exog_hist,
+            "max_exog_stat": self.max_exog_stat,
+            "early_stopping_patience": self.early_stopping_patience,
+        }
+        for field, value in non_negative_fields.items():
+            if value < 0:
+                raise ValueError(f"{field} must be non-negative: {value}")
 
-        valid_log_levels = {"DEBUG", "INFO", "WARNING", "ERROR"}
-        if self.log_level.upper() not in valid_log_levels:
+        if self.gradient_clip_val < 0:
             raise ValueError(
-                f"log_level must be one of {valid_log_levels}, got {self.log_level}"
+                f"gradient_clip_val must be >= 0: {self.gradient_clip_val}"
             )
 
-        if self.random_seed < 0:
-            raise ValueError(f"random_seed must be >= 0, got {self.random_seed}")
+        if self.accelerator not in _VALID_ACCELERATORS:
+            raise ValueError(
+                f"accelerator must be one of {_VALID_ACCELERATORS}: "
+                f"{self.accelerator}"
+            )
+        if self.precision not in _VALID_PRECISIONS:
+            raise ValueError(
+                f"precision must be one of {_VALID_PRECISIONS}: {self.precision}"
+            )
 
-    def is_production(self) -> bool:
-        """Return True when running in production mode."""
-        return self.mode is ExecutionMode.PRODUCTION
+    def get_effective_h(self, data_length: int) -> int:
+        """Return effective forecasting horizon."""
+        horizon = int(data_length * self.h_ratio)
+        return max(self.default_h, horizon)
 
-    def get_worker_count(self) -> int:
-        """Return effective worker count constrained by system resources."""
-        return min(self.n_workers, max(1, multiprocessing.cpu_count()))
+    def should_use_gpu(self) -> bool:
+        """Return True when GPU-capable accelerator selected."""
+        return self.accelerator in {"cuda", "auto", "mps", "tpu"}
+
+    def get_num_workers(self) -> int:
+        """Return worker count constrained by CPU availability."""
+        cpu_count = os.cpu_count() or 1
+        return max(1, min(self.max_workers, cpu_count))

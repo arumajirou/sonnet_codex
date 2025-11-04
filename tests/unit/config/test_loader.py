@@ -13,7 +13,7 @@ SRC_DIR = ROOT_DIR / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from nf_auto_runner.config.execution import ExecutionConfig, ExecutionMode  # noqa: E402
+from nf_auto_runner.config.execution import ExecutionConfig  # noqa: E402
 from nf_auto_runner.config.loader import ConfigLoader  # noqa: E402
 from nf_auto_runner.config.model_selection import ModelSelectionConfig  # noqa: E402
 from nf_auto_runner.config.path import PathConfig  # noqa: E402
@@ -124,19 +124,7 @@ class TestConfigLoader:
             checkpoint_dir=tmp_path / "out" / "checkpoints",
             plot_dir=tmp_path / "out" / "plots",
         )
-        execution_config = ExecutionConfig(
-            mode=ExecutionMode.DEVELOPMENT,
-            n_workers=1,
-            backend=ExecutionConfig.from_env().backend,
-            max_memory_gb=None,
-            use_gpu=False,
-            gpu_devices=None,
-            timeout_seconds=10,
-            max_retries=1,
-            log_level="INFO",
-            debug=False,
-            random_seed=1,
-        )
+        execution_config = ExecutionConfig.from_env()
 
         loader = ConfigLoader()
 
