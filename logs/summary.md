@@ -52,3 +52,9 @@ Automation update:
 ### Automation update (2025-11-04 22:17:55)
 - Aligned Ruff with Black (ignore E203,W503); reformatted codebase.
 - make -k ci result: FAIL
+
+---
+### Automation update (2025-11-04 22:25:42)
+- Updated pyproject.toml for Ruff 0.14.x (drop W503; keep E203 ignore; per-file-ignores for structured.py: C901,SIM108).
+- Applied targeted code fixes (B027 in Config.validate; UP022 in tools/update_summary_locations.py).
+- make -k ci result: OK
