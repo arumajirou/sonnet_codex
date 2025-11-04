@@ -67,9 +67,7 @@ class DataLoader:
             )
         except UnicodeDecodeError as exc:
             logger.error("Failed to decode CSV %s: %s", path_obj, exc)
-            raise EncodingError(
-                f"Failed to decode file {path_obj} with {active_encoding}"
-            ) from exc
+            raise EncodingError(f"Failed to decode file {path_obj} with {active_encoding}") from exc
         except ValueError as exc:
             error_message = str(exc)
             if parse_dates and "parse_dates" in error_message:

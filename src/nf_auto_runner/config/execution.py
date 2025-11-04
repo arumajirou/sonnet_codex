@@ -126,12 +126,8 @@ class ExecutionConfig(Config):
         """Construct configuration from environment variables."""
         env_payload: dict[str, Any] = {
             "random_state": os.getenv("RANDOM_STATE", _DEFAULTS["random_state"]),
-            "trial_num_samples": os.getenv(
-                "TRIAL_NUM_SAMPLES", _DEFAULTS["trial_num_samples"]
-            ),
-            "trial_max_steps": os.getenv(
-                "TRIAL_MAX_STEPS", _DEFAULTS["trial_max_steps"]
-            ),
+            "trial_num_samples": os.getenv("TRIAL_NUM_SAMPLES", _DEFAULTS["trial_num_samples"]),
+            "trial_max_steps": os.getenv("TRIAL_MAX_STEPS", _DEFAULTS["trial_max_steps"]),
             "default_h": os.getenv("DEFAULT_H", _DEFAULTS["default_h"]),
             "h_ratio": os.getenv("H_RATIO", _DEFAULTS["h_ratio"]),
             "max_workers": os.getenv("MAX_WORKERS", _DEFAULTS["max_workers"]),
@@ -142,18 +138,14 @@ class ExecutionConfig(Config):
             "overwrite_model": os.getenv(
                 "OVERWRITE_MODEL", str(_DEFAULTS["overwrite_model"]).lower()
             ),
-            "dir_tokens_maxlen": os.getenv(
-                "DIR_TOKENS_MAXLEN", _DEFAULTS["dir_tokens_maxlen"]
-            ),
+            "dir_tokens_maxlen": os.getenv("DIR_TOKENS_MAXLEN", _DEFAULTS["dir_tokens_maxlen"]),
             "max_exog_futr": os.getenv("MAX_EXOG_FUTR", _DEFAULTS["max_exog_futr"]),
             "max_exog_hist": os.getenv("MAX_EXOG_HIST", _DEFAULTS["max_exog_hist"]),
             "max_exog_stat": os.getenv("MAX_EXOG_STAT", _DEFAULTS["max_exog_stat"]),
             "early_stopping_patience": os.getenv(
                 "EARLY_STOPPING_PATIENCE", _DEFAULTS["early_stopping_patience"]
             ),
-            "gradient_clip_val": os.getenv(
-                "GRADIENT_CLIP_VAL", _DEFAULTS["gradient_clip_val"]
-            ),
+            "gradient_clip_val": os.getenv("GRADIENT_CLIP_VAL", _DEFAULTS["gradient_clip_val"]),
             "accelerator": os.getenv("ACCELERATOR", _DEFAULTS["accelerator"]),
             "devices": os.getenv("DEVICES", _DEFAULTS["devices"]),
             "precision": os.getenv("PRECISION", _DEFAULTS["precision"]),
@@ -171,30 +163,22 @@ class ExecutionConfig(Config):
         """Internal helper to build configuration from arbitrary mapping."""
         return cls(
             random_state=_parse_int(payload["random_state"], "random_state"),
-            trial_num_samples=_parse_int(
-                payload["trial_num_samples"], "trial_num_samples"
-            ),
+            trial_num_samples=_parse_int(payload["trial_num_samples"], "trial_num_samples"),
             trial_max_steps=_parse_int(payload["trial_max_steps"], "trial_max_steps"),
             default_h=_parse_int(payload["default_h"], "default_h"),
             h_ratio=_parse_h_ratio(payload["h_ratio"]),
             max_workers=_parse_int(payload["max_workers"], "max_workers"),
-            allow_ray_parallel=_parse_bool(
-                payload["allow_ray_parallel"], "allow_ray_parallel"
-            ),
+            allow_ray_parallel=_parse_bool(payload["allow_ray_parallel"], "allow_ray_parallel"),
             save_model=_parse_bool(payload["save_model"], "save_model"),
             overwrite_model=_parse_bool(payload["overwrite_model"], "overwrite_model"),
-            dir_tokens_maxlen=_parse_int(
-                payload["dir_tokens_maxlen"], "dir_tokens_maxlen"
-            ),
+            dir_tokens_maxlen=_parse_int(payload["dir_tokens_maxlen"], "dir_tokens_maxlen"),
             max_exog_futr=_parse_int(payload["max_exog_futr"], "max_exog_futr"),
             max_exog_hist=_parse_int(payload["max_exog_hist"], "max_exog_hist"),
             max_exog_stat=_parse_int(payload["max_exog_stat"], "max_exog_stat"),
             early_stopping_patience=_parse_int(
                 payload["early_stopping_patience"], "early_stopping_patience"
             ),
-            gradient_clip_val=_parse_float(
-                payload["gradient_clip_val"], "gradient_clip_val"
-            ),
+            gradient_clip_val=_parse_float(payload["gradient_clip_val"], "gradient_clip_val"),
             accelerator=_normalise_accelerator(payload["accelerator"]),
             devices=_parse_int(payload["devices"], "devices"),
             precision=_normalise_precision(payload["precision"]),
@@ -231,19 +215,14 @@ class ExecutionConfig(Config):
                 raise ValueError(f"{field} must be non-negative: {value}")
 
         if self.gradient_clip_val < 0:
-            raise ValueError(
-                f"gradient_clip_val must be >= 0: {self.gradient_clip_val}"
-            )
+            raise ValueError(f"gradient_clip_val must be >= 0: {self.gradient_clip_val}")
 
         if self.accelerator not in _VALID_ACCELERATORS:
             raise ValueError(
-                f"accelerator must be one of {_VALID_ACCELERATORS}: "
-                f"{self.accelerator}"
+                f"accelerator must be one of {_VALID_ACCELERATORS}: " f"{self.accelerator}"
             )
         if self.precision not in _VALID_PRECISIONS:
-            raise ValueError(
-                f"precision must be one of {_VALID_PRECISIONS}: {self.precision}"
-            )
+            raise ValueError(f"precision must be one of {_VALID_PRECISIONS}: {self.precision}")
 
     def get_effective_h(self, data_length: int) -> int:
         """Return effective forecasting horizon."""

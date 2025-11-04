@@ -61,12 +61,8 @@ class LogContext:
     _correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
         "correlation_id", default=None
     )
-    _run_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-        "run_id", default=None
-    )
-    _user_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-        "user_id", default=None
-    )
+    _run_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("run_id", default=None)
+    _user_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("user_id", default=None)
 
     @staticmethod
     def set_correlation_id(correlation_id: str | None = None) -> str:

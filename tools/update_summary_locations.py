@@ -94,9 +94,7 @@ class SymbolCollector(ast.NodeVisitor):
 def _node_end_lineno(node: ast.AST) -> int:
     end_lineno = getattr(node, "end_lineno", None)
     if end_lineno is None:
-        raise ValueError(
-            f"Python AST node missing end_lineno for {type(node).__name__}"
-        )
+        raise ValueError(f"Python AST node missing end_lineno for {type(node).__name__}")
     return end_lineno
 
 
@@ -173,9 +171,7 @@ def _detect_default_branch() -> str:
     return "main"
 
 
-def _build_link(
-    base_url: str, branch: str, relative_path: Path, symbol: SymbolInfo
-) -> str:
+def _build_link(base_url: str, branch: str, relative_path: Path, symbol: SymbolInfo) -> str:
     anchor = f"#L{symbol.start_line}"
     if symbol.end_line != symbol.start_line:
         anchor = f"{anchor}-L{symbol.end_line}"

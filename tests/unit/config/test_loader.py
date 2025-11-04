@@ -131,9 +131,7 @@ class TestConfigLoader:
         with pytest.raises(ValueError, match="same type"):
             loader.merge_configs([path_config, execution_config])
 
-    def test_validate_all_success(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_validate_all_success(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """validate_all should return True when every config passes."""
         self._prepare_env(monkeypatch, tmp_path)
 
@@ -156,9 +154,7 @@ class TestConfigLoader:
         with pytest.raises(KeyError, match="Configuration not loaded"):
             loader.get(PathConfig)
 
-    def test_save_all_success(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_save_all_success(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """save_all should persist a JSON artefact with all loaded configs."""
         self._prepare_env(monkeypatch, tmp_path)
         loader = ConfigLoader()

@@ -34,9 +34,7 @@ class Config(ABC):
             if dataclass_fields and key not in dataclass_fields:
                 continue
             target_type = type_hints.get(key)
-            if isinstance(value, str) and (
-                target_type is Path or key.endswith(("_path", "_dir"))
-            ):
+            if isinstance(value, str) and (target_type is Path or key.endswith(("_path", "_dir"))):
                 converted[key] = Path(value)
             else:
                 converted[key] = value

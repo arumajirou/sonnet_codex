@@ -169,9 +169,7 @@ def test_missing_log_file_when_required(tmp_path: Path) -> None:
 
 
 def test_log_context_generates_uuid(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "nf_auto_runner.logging.structured.uuid4", lambda: "generated-id"
-    )
+    monkeypatch.setattr("nf_auto_runner.logging.structured.uuid4", lambda: "generated-id")
     generated = LogContext.set_correlation_id()
     assert generated == "generated-id"
     assert LogContext.get_correlation_id() == "generated-id"
@@ -197,16 +195,12 @@ def test_helper_shortcuts_call_log(tmp_path: Path) -> None:
     logger.error("error message")
     logger.critical("critical message", status="fatal")
 
-    entries = [
-        json.loads(line) for line in log_file.read_text(encoding="utf-8").splitlines()
-    ]
+    entries = [json.loads(line) for line in log_file.read_text(encoding="utf-8").splitlines()]
     assert [e["level"] for e in entries] == ["DEBUG", "WARNING", "ERROR", "CRITICAL"]
     assert entries[-1]["status"] == "fatal"
 
 
-def test_runtime_context_injects_gpu_id(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_runtime_context_injects_gpu_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     log_file = tmp_path / "logs" / "gpu.jsonl"
     monkeypatch.setattr("nf_auto_runner.logging.structured._detect_gpu_id", lambda: 3)
     logger = StructuredLogger.get_logger(

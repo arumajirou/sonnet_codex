@@ -54,9 +54,7 @@ class TestModelSelectionConfig:
         monkeypatch.setenv("ENABLE_AUTO_NHITS", "false")
         monkeypatch.setenv("ENABLE_AUTO_TFT", "1")
         monkeypatch.setenv("ENABLE_AUTO_PATCHTST", "yes")
-        monkeypatch.setenv(
-            "MODEL_WHITELIST", '["AutoNHITS", "AutoTFT", "AutoPatchTST"]'
-        )
+        monkeypatch.setenv("MODEL_WHITELIST", '["AutoNHITS", "AutoTFT", "AutoPatchTST"]')
         monkeypatch.setenv("MODEL_BLACKLIST", '["AutoLSTM"]')
 
         config = ModelSelectionConfig.from_env()

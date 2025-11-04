@@ -1,12 +1,39 @@
-[tool.black]
-line-length = 88
-target-version = ["py311"]
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nf-auto-runner"
+version = "0.1.0"
+description = "Automation helpers and utilities for neural forecast runners"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "arumajirou" }]
+keywords = ["neuralforecast", "automation", "timeseries", "ml"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+# ランタイム必須は最小限（重いものは requirements.txt 管理）
+dependencies = []
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["nf_auto_runner*"]
 
 [tool.ruff]
-line-length = 88
-target-version = "py311"
+line-length = 100
 
 [tool.ruff.lint]
-select = ["E","F","I","UP","B","SIM","C90"]
+extend-select = ["E", "F", "I", "UP"]
 ignore = ["E203"]
-per-file-ignores = { "src/nf_auto_runner/logging/structured.py" = ["C901","SIM108"] }
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]

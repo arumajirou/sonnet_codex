@@ -42,9 +42,7 @@ def sample_parquet(tmp_path: Path) -> Path:
     df = pd.DataFrame(
         {
             "unique_id": ["store_1", "store_1", "store_2", "store_2"],
-            "ds": pd.to_datetime(
-                ["2025-01-01", "2025-01-02", "2025-01-01", "2025-01-02"]
-            ),
+            "ds": pd.to_datetime(["2025-01-01", "2025-01-02", "2025-01-01", "2025-01-02"]),
             "y": [100.0, 110.0, 200.0, 210.0],
         }
     )

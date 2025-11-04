@@ -77,9 +77,7 @@ class ConfigLoader:
             self.configs[ExecutionConfig] = execution_config
 
         if "model_selection" in data:
-            model_selection_config = ModelSelectionConfig.from_dict(
-                data["model_selection"]
-            )
+            model_selection_config = ModelSelectionConfig.from_dict(data["model_selection"])
             model_selection_config.validate()
             loaded["model_selection"] = model_selection_config
             self.configs[ModelSelectionConfig] = model_selection_config

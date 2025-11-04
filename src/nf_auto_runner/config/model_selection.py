@@ -78,15 +78,9 @@ class ModelSelectionConfig(Config):
         blacklist = _parse_json_list(blacklist_raw)
 
         return cls(
-            enable_auto_nhits=_parse_bool(
-                os.getenv(_AUTO_MODEL_FLAGS["AutoNHITS"]), default=True
-            ),
-            enable_auto_lstm=_parse_bool(
-                os.getenv(_AUTO_MODEL_FLAGS["AutoLSTM"]), default=True
-            ),
-            enable_auto_tft=_parse_bool(
-                os.getenv(_AUTO_MODEL_FLAGS["AutoTFT"]), default=False
-            ),
+            enable_auto_nhits=_parse_bool(os.getenv(_AUTO_MODEL_FLAGS["AutoNHITS"]), default=True),
+            enable_auto_lstm=_parse_bool(os.getenv(_AUTO_MODEL_FLAGS["AutoLSTM"]), default=True),
+            enable_auto_tft=_parse_bool(os.getenv(_AUTO_MODEL_FLAGS["AutoTFT"]), default=False),
             enable_auto_informer=_parse_bool(
                 os.getenv(_AUTO_MODEL_FLAGS["AutoInformer"]), default=False
             ),
@@ -118,9 +112,7 @@ class ModelSelectionConfig(Config):
         blacklist_set = set(self.model_blacklist)
         overlap = whitelist_set & blacklist_set
         if overlap:
-            raise ValueError(
-                f"Models appear in both whitelist and blacklist: {sorted(overlap)}"
-            )
+            raise ValueError(f"Models appear in both whitelist and blacklist: {sorted(overlap)}")
 
     def get_enabled_models(self) -> list[str]:
         """Return model identifiers that are enabled after filters are applied."""

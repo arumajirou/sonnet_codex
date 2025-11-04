@@ -46,9 +46,7 @@ class TestPathConfig:
         assert config.plot_dir == Path("./nf_auto_runs/plots")
         assert config.project_root == module_file.parent.parent
 
-    def test_from_env_custom_values(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
+    def test_from_env_custom_values(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """Environment overrides should be reflected in resulting config."""
         monkeypatch.setenv("NF_DATA_CSV", str(tmp_path / "input/data.csv"))
         monkeypatch.setenv("NF_OUTPUT_DIR", str(tmp_path / "outputs"))
@@ -101,9 +99,7 @@ class TestPathConfig:
             plot_dir=tmp_path / "outputs" / "plots",
         )
 
-        with pytest.raises(
-            ValueError, match="Data CSV parent directory does not exist"
-        ):
+        with pytest.raises(ValueError, match="Data CSV parent directory does not exist"):
             config.validate()
 
     def test_ensure_dirs_creates_directories(self, tmp_path: Path) -> None:
@@ -232,12 +228,8 @@ class TestPathConfig:
         checkpoint_path = config.get_checkpoint_path("run-xyz", "model.ckpt")
         plot_path = config.get_plot_path("run-xyz", "chart.png")
 
-        assert artifact_path == (
-            tmp_path / "custom_artifacts" / "run-xyz" / "artifact.bin"
-        )
-        assert checkpoint_path == (
-            tmp_path / "custom_checkpoints" / "run-xyz" / "model.ckpt"
-        )
+        assert artifact_path == (tmp_path / "custom_artifacts" / "run-xyz" / "artifact.bin")
+        assert checkpoint_path == (tmp_path / "custom_checkpoints" / "run-xyz" / "model.ckpt")
         assert plot_path == (tmp_path / "custom_plots" / "run-xyz" / "chart.png")
         assert artifact_path.parent.exists()
         assert checkpoint_path.parent.exists()
