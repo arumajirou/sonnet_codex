@@ -1,0 +1,37 @@
+# Repository Guidelines
+
+## Project Structure & Module Organization
+
+- `src/nf_auto_runner/` hosts the layered modules (config, data, model, execution, service, app, utils); align new packages with the nine-layer design documented in `doc/00_INTEGRATED_DESIGN_OVERVIEW.md`.
+- Keep orchestration helpers in `src/scripts/` (`train.py`, `predict.py`, `evaluate.py`, `analyze.py`); configuration lives in `conf/`, and runtime artefacts in `data/`, `models/`, `outputs/`, and `logs/`.
+- Tests mirror the source layout under `tests/unit`, `tests/integration`, and `tests/e2e`, with reusable fixtures and sample data in `tests/fixtures/`.
+
+## Build, Test, and Development Commands
+
+- Bootstrap with `poetry install` (+ `poetry shell`) or `.venv` + `pip install -r requirements-dev.txt` to match CI.
+- Use the Makefile for common flows: `make lint`, `make typecheck`, `make test`, `make coverage`, `make dev` (FastAPI), and `make run` (CLI entrypoint).
+- Database and migrations are wrapped by `make setup-db`, `make migrate`, and `make migrate-rollback`; ad-hoc suites run via `poetry run pytest tests/ --cov=src --cov-report=term`.
+
+## Coding Style & Naming Conventions
+
+- Follow PEP 8 with four-space indentation, 100-character lines, and strict type hints; `black`, `isort`, `flake8`, `pylint`, and `mypy --strict` are wired into `make lint`.
+- Name modules by responsibility (`*_service.py`, `*_executor.py`), keep functions snake_case, classes CamelCase, and constants UPPER_SNAKE_CASE.
+- Expose only stable interfaces in `src/nf_auto_runner/__init__.py`; keep experimental utilities internal until documented.
+
+## Testing Guidelines
+
+- Pytest drives validation: unit suites must pass `pytest tests/unit --cov=src/nf_auto_runner --cov-fail-under=90`, integration suites target ≥80% coverage, and E2E runs should log artefacts to `outputs/runs/`.
+- Apply shared markers from `pytest.ini` (`performance`, `security`, `slow`) and isolate synthetic datasets within `tests/fixtures` to avoid polluting `data/`.
+- Regression fixes require a reproducing test before code changes; record coverage deltas or risk waivers in the PR checklist.
+
+## Commit & Pull Request Guidelines
+
+- Use Conventional Commits (`feat: add ray executor support`) with bodies summarizing implementation details, executed checks, and linked issues.
+- Run `pre-commit run --all-files` prior to push; hooks cover formatting, linting, typing, and security scans.
+- PRs must link the tracking issue, list the commands executed (`make lint`, `pytest tests/ --cov=src`), and attach screenshots or sample outputs for user-visible changes.
+
+## Security & Configuration Tips
+
+- Copy `.env.example` when provisioning secrets; never commit real `.env` files and document new keys in `conf/README.md`.
+- Surface paths and feature toggles through `PathConfig` rather than hard-coded strings to keep jobs portable across CPU/GPU environments.
+- When adjusting dependencies, run `poetry lock --check` and `pip-audit`, noting any advisories in the PR description.
