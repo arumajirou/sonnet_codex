@@ -86,7 +86,7 @@ lint-all: lint typecheck ## ruff/black + mypy + flake8
 	$(FLAKE8)
 
 test: ## ユニットテスト（速い・カバレッジ表示）
-	$(PYTEST) $(PYTEST_ARGS)
+	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTEST_ADDOPTS="-p pytest_cov" $(PYTEST) $(PYTEST_ARGS)
 
 coverage: ## カバレッジの XML/HTML レポート生成
 	$(PYTEST) -q --cov=src/nf_auto_runner --cov-report=xml --cov-report=html
@@ -154,4 +154,3 @@ clean-all: clean ## 追加で NF/Codex 一時成果を掃除
 codex-auth:
 	@test -n "$$OPENAI_API_KEY" || { echo "OPENAI_API_KEY が未設定"; exit 1; }
 	$(CODEX) login --api-key "$$OPENAI_API_KEY"
-
