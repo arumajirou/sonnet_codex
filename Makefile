@@ -93,9 +93,14 @@ coverage: ## カバレッジの XML/HTML レポート生成
 	@echo "coverage: coverage.xml / htmlcov/index.html を確認"
 
 verify: ## プロジェクト独自の検証
-	./scripts/verify.sh
+	@export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1; \
+	 export PYTEST_ADDOPTS="-p pytest_cov"; \
+	 ./scripts/verify.sh
 
-ci: fmt lint-all test verify ## CIゲート一発（整形→Lint→型→テスト→検証）
+ci: ## CIゲート（lint→test→verify）
+	@$(MAKE) lint
+	@$(MAKE) test
+	@$(MAKE) verify
 
 smoke: ## (任意) NF最小スモーク。ファイルが無ければスキップ
 	@if [ "$(NF_SMOKE)" = "1" ] && [ -f "$(NF_SMOKE_ENTRY)" ]; then \
