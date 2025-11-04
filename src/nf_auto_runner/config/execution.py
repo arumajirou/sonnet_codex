@@ -114,9 +114,7 @@ class ExecutionConfig(Config):
         backend = _parse_enum(
             ParallelBackend, os.getenv("PARALLEL_BACKEND", "multiprocessing"), "backend"
         )
-        n_workers = int(
-            os.getenv("N_WORKERS", str(multiprocessing.cpu_count()))
-        )
+        n_workers = int(os.getenv("N_WORKERS", str(multiprocessing.cpu_count())))
         max_memory_gb = _parse_optional_float(os.getenv("MAX_MEMORY_GB"))
         use_gpu = _parse_bool(os.getenv("USE_GPU", "false"))
         gpu_devices = _parse_gpu_devices(os.getenv("GPU_DEVICES"))
@@ -151,9 +149,7 @@ class ExecutionConfig(Config):
             data.get("backend", ParallelBackend.MULTIPROCESSING),
             "backend",
         )
-        n_workers = int(
-            data.get("n_workers", multiprocessing.cpu_count())
-        )
+        n_workers = int(data.get("n_workers", multiprocessing.cpu_count()))
         max_memory_gb = _parse_optional_float(data.get("max_memory_gb"))
         use_gpu = _parse_bool(data.get("use_gpu", False))
         gpu_devices = _parse_gpu_devices(data.get("gpu_devices"))
@@ -187,7 +183,9 @@ class ExecutionConfig(Config):
             "backend": self.backend.value,
             "max_memory_gb": self.max_memory_gb,
             "use_gpu": self.use_gpu,
-            "gpu_devices": list(self.gpu_devices) if self.gpu_devices is not None else None,
+            "gpu_devices": (
+                list(self.gpu_devices) if self.gpu_devices is not None else None
+            ),
             "timeout_seconds": self.timeout_seconds,
             "max_retries": self.max_retries,
             "log_level": self.log_level,
@@ -211,7 +209,9 @@ class ExecutionConfig(Config):
 
         valid_log_levels = {"DEBUG", "INFO", "WARNING", "ERROR"}
         if self.log_level.upper() not in valid_log_levels:
-            raise ValueError(f"log_level must be one of {valid_log_levels}, got {self.log_level}")
+            raise ValueError(
+                f"log_level must be one of {valid_log_levels}, got {self.log_level}"
+            )
 
         if self.random_seed < 0:
             raise ValueError(f"random_seed must be >= 0, got {self.random_seed}")

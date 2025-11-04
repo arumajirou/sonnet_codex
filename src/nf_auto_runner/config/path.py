@@ -86,10 +86,28 @@ class PathConfig(Config):
         self.model_dir.mkdir(parents=True, exist_ok=True)
         return self.model_dir / f"{run_id}_{model_name}.pth"
 
+    def get_artifact_path(self, run_id: str, artifact_name: str) -> Path:
+        """Return path for storing an artefact generated during a run."""
+        run_artifact_dir = self.artifact_dir / run_id
+        run_artifact_dir.mkdir(parents=True, exist_ok=True)
+        return run_artifact_dir / artifact_name
+
+    def get_checkpoint_path(self, run_id: str, checkpoint_name: str) -> Path:
+        """Return path for persisting checkpoints under the configured directory."""
+        run_checkpoint_dir = self.checkpoint_dir / run_id
+        run_checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        return run_checkpoint_dir / checkpoint_name
+
     def get_log_path(self, run_id: str) -> Path:
         """Return structured log file path for the provided run identifier."""
         self.log_dir.mkdir(parents=True, exist_ok=True)
         return self.log_dir / f"{run_id}.jsonl"
+
+    def get_plot_path(self, run_id: str, plot_name: str) -> Path:
+        """Return path for saving visualisation artefacts for a run."""
+        run_plot_dir = self.plot_dir / run_id
+        run_plot_dir.mkdir(parents=True, exist_ok=True)
+        return run_plot_dir / plot_name
 
     @property
     def _managed_directories(self) -> Iterable[Path]:

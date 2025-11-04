@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 from pathlib import Path
 import sys
@@ -48,7 +47,9 @@ class TestPathConfig:
         assert config.plot_dir == Path("./nf_auto_runs/plots")
         assert config.project_root == module_file.parent.parent
 
-    def test_from_env_custom_values(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_from_env_custom_values(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """Environment overrides should be reflected in resulting config."""
         monkeypatch.setenv("NF_DATA_CSV", str(tmp_path / "input/data.csv"))
         monkeypatch.setenv("NF_OUTPUT_DIR", str(tmp_path / "outputs"))

@@ -1,0 +1,723 @@
+Reading prompt from stdin...
+OpenAI Codex v0.53.0 (research preview)
+--------
+workdir: /mnt/e/env/ts/sonnet_codex
+model: gpt-5-codex
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: medium
+reasoning summaries: auto
+session id: 019a4e24-5e36-7042-9930-9282db3ecba3
+--------
+user
+# AGENT MODE
+- Run headless, non-interactive. No conversational replies.
+- Single source of truth: ./AGENTS.md and ./doc/*.md
+
+# OBJECTIVE
+A) 設計書の CLI 仕様を突合（AGENTS.md / doc/*）。
+   - `nf_auto_runner.runners.main` と `tsl.cli.main train-one` の**不一致を検出**し、整合方針を決定。
+B) 可能なら**最小差分で** CLI を用意：
+   - 既に `src/nf_auto_runner/runners/main.py` がある → `train-one` サブコマンド実装（CSV入力検証、PathConfig配下へ成果物作成、予測はダミーでも可）。
+   - 無ければ**推測実装をせず**、OPEN_POINTS.md に「CLI 仕様不一致」を追記して**停止**。
+C) すべての書き込みは PathConfig 経由（NF_* を尊重）。
+D) ユニットテストを**必要最小**で追加（CLI の --help と出力先検証）。
+E) `make verify` 実行。緑でなければ直して再実行。
+
+# ACCEPTANCE
+- make verify 緑（lint+pytest+coverage gate+GPU smoke）。
+- 非テストコードに直書きパスなし（PathConfigのみ）。
+- 変更は最小。コミット本文に**doc アンカー**を引用（例：doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence, AGENTS.md §Verification）。
+
+# STEPS
+1) 文書解析：
+   - AGENTS.md の Done 定義/ガードレールを確認（不確実なら STOP）。 
+   - doc/11_OPERATIONS_RUNBOOK.md の `tsl.cli.main train-one` 記述と、
+     ルートドキュメントの `nf_auto_runner.runners.main` 記述を比較。
+2) 実装ポリシー分岐：
+   - `src/nf_auto_runner/runners/main.py` が**存在** → argparse/click で `train-one` 実装。
+     * 入力: --model, --data-csv, --workspace, --param KEY=VAL（複数可）
+     * 処理: CSV読み込み可否の検証のみ（学習は未定義なのでダミー）。PathConfig の artifacts/plots/models/checkpoints にプレースホルダを作成。
+     * 出力: predictions.csv(ダミー), metrics.json(ダミー), run.json(メタ)
+     * すべて NF_* を尊重し、workspace 直下にもミラー（設計の可観測性要件に沿う）
+   - **存在しない** → 実装せず OPEN_POINTS.md に
+     * OP-CLI-001: 「CLI 仕様の不一致（nf_auto_runner.runners.main vs tsl.cli.main）」
+       - Related: AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence
+       - Interim: 学習は未実行。make verify のみ緑維持。CLI 仕様の決定待ち。
+3) テスト追加（必要最小）：
+   - tests/unit/cli/test_cli.py
+     * `python -m nf_auto_runner.runners.main --help` が 0 終了（存在時）
+     * NF_* 環境を上書き → `train-one --data-csv <tmp.csv> --workspace <tmpdir>` 実行で
+       `<NF_LOG_DIR>/...`, `<workspace>/predictions.csv` などの**存在**を検証（中身は最小）
+4) `make verify` を実施
+5) レポート/コミット：
+   - PROGRESS.md 更新（満たした MUST/SHOULD と進捗率）
+   - 差分があればコミット（最小差分、doc アンカーを本文に記載）
+   - OPEN_POINTS.md を追記した場合は**そこで停止**
+
+# EXIT
+- 緑 & OPEN_POINTS なし → 0 で終了
+- 不確実点あり → OPEN_POINTS.md に追記して終了（AGENTS 規約）
+
+
+thinking
+**Determining final response requirements**
+exec
+bash -lc ls in /mnt/e/env/ts/sonnet_codex succeeded in 6ms:
+AGENTS.md
+AGENTS.md.bak
+CODEX_HEADLESS_GUIDE.md
+Makefile
+OPEN_POINTS.md
+PROGRESS.md
+codex_prompt.txt
+doc
+nf_auto_runs
+scripts
+sonnet_codex_headless_pack
+sonnet_codex_headless_pack.zip
+src
+tests
+tmp
+
+thinking
+**Searching for AGENTS files**
+exec
+bash -lc 'cat AGENTS.md' in /mnt/e/env/ts/sonnet_codex succeeded in 5ms:
+# AGENTS.md — Headless Codex Playbook (JP/EN)
+
+## Mission / 目的
+- Run **non-interactively** (headless) via `codex exec` and finish without human prompts.
+- Obey docs under `./doc/` as the **single source of truth**.
+- Never guess requirements. If uncertain, **do not implement**; record in `OPEN_POINTS.md`.
+
+## Repository Contracts / リポの前提
+- Source: `src/`, Tests: `tests/`, Docs: `doc/`, Artifacts: `nf_auto_runs/`（models/logs/artifacts/checkpoints, plots）.
+- PathConfig/env: `NF_OUTPUT_DIR`, `NF_LOG_DIR`, `NF_MODEL_DIR`, `NF_ARTIFACT_DIR`, `NF_CHECKPOINT_DIR`, `NF_PLOT_DIR`.
+- Python 3.11, CUDA 13, Torch 2.10 dev (GPU available). Prefer `accelerator=auto`.
+
+## Verification — the **only acceptance** / 検証（唯一の合格基準）
+Run these exactly (locally or in CI). If green, the task is **done**:
+```bash
+make setup          # optional when first run
+make lint           # ruff/black/flake8/mypy (pylint optional)
+make test           # pytest (unit+selected integration), coverage gate
+make verify         # wraps lint+test and fast GPU smoke
+```
+
+thinking
+**Checking specific documentation**
+exec
+bash -lc 'ls doc' in /mnt/e/env/ts/sonnet_codex succeeded in 6ms:
+00_DEVELOPMENT_RULES_AND_HIGH_QUALITY_PROMPTS.md
+00_INTEGRATED_DESIGN_OVERVIEW.md
+01_REQUIREMENTS_SPECIFICATION_DETAILED.md
+02_NON_FUNCTIONAL_REQUIREMENTS.md
+03_ARCHITECTURE_DESIGN_DETAILED.md
+04_CLASS_DESIGN_DETAILED.md
+05_DATABASE_DESIGN_DETAILED.md
+06_API_DESIGN_DETAILED.md
+07_IMPLEMENTATION_GUIDE.md
+08_CODING_STANDARDS.md
+09_TESTING_STRATEGY.md
+10_DEPLOYMENT_GUIDE.md
+11_OPERATIONS_RUNBOOK.md
+12_MONITORING_GUIDE.md
+13_PROJECT_SCHEDULE.md
+15_TROUBLESHOOTING_GUIDE.docx
+16_PERFORMANCE_TUNING.docx
+17_BACKUP_RECOVERY.md
+18_QUICKSTART.md
+19_FAQ.md
+
+thinking
+**Checking documentation files**
+exec
+bash -lc 'rg "train-one" -n doc' in /mnt/e/env/ts/sonnet_codex exited 1 in 9ms:
+
+
+thinking
+**Checking for documentation**
+exec
+bash -lc 'grep -n "train-one" doc/11_OPERATIONS_RUNBOOK.md' in /mnt/e/env/ts/sonnet_codex exited 1 in 6ms:
+
+
+thinking
+**Considering documentation format**
+exec
+bash -lc 'head -n 120 doc/11_OPERATIONS_RUNBOOK.md' in /mnt/e/env/ts/sonnet_codex succeeded in 7ms:
+# 📖 11_OPERATIONS_RUNBOOK.md - 運用手順書
+
+**Time Series Forecasting System - Operations Runbook**
+
+---
+
+## 📋 目次
+
+1. [概要](#1-概要)
+2. [システム概要](#2-システム概要)
+3. [日常運用タスク](#3-日常運用タスク)
+4. [システム監視](#4-システム監視)
+5. [障害対応手順](#5-障害対応手順)
+6. [パフォーマンスチューニング](#6-パフォーマンスチューニング)
+7. [スケーリング手順](#7-スケーリング手順)
+8. [メンテナンス作業](#8-メンテナンス作業)
+9. [インシデント管理](#9-インシデント管理)
+10. [エスカレーションパス](#10-エスカレーションパス)
+11. [オンコール対応](#11-オンコール対応)
+12. [ナレッジベース](#12-ナレッジベース)
+
+thinking
+**Searching for 'train-one' occurrences**
+exec
+bash -lc 'rg -i "train-one" -n doc' in /mnt/e/env/ts/sonnet_codex exited 1 in 10ms:
+
+
+thinking
+**Searching for "train one"**
+exec
+bash -lc 'rg -i "train one" -n doc' in /mnt/e/env/ts/sonnet_codex exited 1 in 10ms:
+
+
+thinking
+**Searching for CLI spec reference**
+exec
+bash -lc 'rg "nf_auto_runner.runners.main" -n' in /mnt/e/env/ts/sonnet_codex succeeded in 11ms:
+OPEN_POINTS.md:6:| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | Awaiting final CLI contract |
+codex_prompt.txt:7:   - `nf_auto_runner.runners.main` と `tsl.cli.main train-one` の**不一致を検出**し、整合方針を決定。
+codex_prompt.txt:9:   - 既に `src/nf_auto_runner/runners/main.py` がある → `train-one` サブコマンド実装（CSV入力検証、PathConfig配下へ成果物作成、予測はダミーでも可）。
+codex_prompt.txt:24:     ルートドキュメントの `nf_auto_runner.runners.main` 記述を比較。
+codex_prompt.txt:26:   - `src/nf_auto_runner/runners/main.py` が**存在** → argparse/click で `train-one` 実装。
+codex_prompt.txt:32:     * OP-CLI-001: 「CLI 仕様の不一致（nf_auto_runner.runners.main vs tsl.cli.main）」
+codex_prompt.txt:37:     * `python -m nf_auto_runner.runners.main --help` が 0 終了（存在時）
+nf_auto_runs/logs/codex_2025-11-04_181317.log:20:   - `nf_auto_runner.runners.main` と `tsl.cli.main train-one` の**不一致を検出**し、整合方針を決定。
+nf_auto_runs/logs/codex_2025-11-04_181317.log:22:   - 既に `src/nf_auto_runner/runners/main.py` がある → `train-one` サブコマンド実装（CSV入力検証、PathConfig配下へ成果物作成、予測はダミーでも可）。
+nf_auto_runs/logs/codex_2025-11-04_181317.log:37:     ルートドキュメントの `nf_auto_runner.runners.main` 記述を比較。
+nf_auto_runs/logs/codex_2025-11-04_181317.log:39:   - `src/nf_auto_runner/runners/main.py` が**存在** → argparse/click で `train-one` 実装。
+nf_auto_runs/logs/codex_2025-11-04_181317.log:45:     * OP-CLI-001: 「CLI 仕様の不一致（nf_auto_runner.runners.main vs tsl.cli.main）」
+nf_auto_runs/logs/codex_2025-11-04_181317.log:50:     * `python -m nf_auto_runner.runners.main --help` が 0 終了（存在時）
+nf_auto_runs/logs/codex_2025-11-04_181317.log:186:bash -lc 'rg "nf_auto_runner.runners.main" -n' in /mnt/e/env/ts/sonnet_codex
+nf_auto_runs/logs/codex_2025-11-04_181212.log:20:   - `nf_auto_runner.runners.main` と `tsl.cli.main train-one` の**不一致を検出**し、整合方針を決定。
+nf_auto_runs/logs/codex_2025-11-04_181212.log:22:   - 既に `src/nf_auto_runner/runners/main.py` がある → `train-one` サブコマンド実装（CSV入力検証、PathConfig配下へ成果物作成、予測はダミーでも可）。
+nf_auto_runs/logs/codex_2025-11-04_181212.log:37:     ルートドキュメントの `nf_auto_runner.runners.main` 記述を比較。
+nf_auto_runs/logs/codex_2025-11-04_181212.log:39:   - `src/nf_auto_runner/runners/main.py` が**存在** → argparse/click で `train-one` 実装。
+nf_auto_runs/logs/codex_2025-11-04_181212.log:45:     * OP-CLI-001: 「CLI 仕様の不一致（nf_auto_runner.runners.main vs tsl.cli.main）」
+nf_auto_runs/logs/codex_2025-11-04_181212.log:50:     * `python -m nf_auto_runner.runners.main --help` が 0 終了（存在時）
+
+thinking
+**Checking existing OPEN_POINTS entries**
+exec
+bash -lc 'cat OPEN_POINTS.md' in /mnt/e/env/ts/sonnet_codex succeeded in 6ms:
+# OPEN_POINTS
+
+| ID | Question / 不明点 | Affected files/sections | Proposed safe interim behavior | Notes |
+|----|--------------------|-------------------------|---------------------------------|-------|
+| OP-001 | Should `confidence_level` be exposed in API v1? | doc/06_API_DESIGN_DETAILED.md, src/... | Keep internal only; default 0.95; no API field | To be decided by PO |
+| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | Awaiting final CLI contract |
+
+thinking
+**Searching for CLI specification**
+exec
+bash -lc 'rg "tsl.cli" -n doc' in /mnt/e/env/ts/sonnet_codex exited 1 in 10ms:
+
+
+thinking
+**Checking zipped documentation contents**
+exec
+bash -lc 'unzip -Z1 doc/sonnet_codex_headless_pack.zip' in /mnt/e/env/ts/sonnet_codex succeeded in 7ms:
+sonnet_codex_headless_pack/AGENTS.md
+sonnet_codex_headless_pack/OPEN_POINTS.md
+sonnet_codex_headless_pack/Makefile
+sonnet_codex_headless_pack/doc/CODEX_HEADLESS_GUIDE.md
+sonnet_codex_headless_pack/scripts/verify.sh
+
+thinking
+**Searching documentation for CLI info**
+exec
+bash -lc 'rg "nf_auto_runner" -n doc' in /mnt/e/env/ts/sonnet_codex succeeded in 9ms:
+doc/19_FAQ.md:288:    command: python -m nf_auto_runner.app.main
+doc/19_FAQ.md:569:from nf_auto_runner import HyperparameterAnalyzer
+doc/19_FAQ.md:679:from nf_auto_runner import NeuralForecastRunner
+doc/19_FAQ.md:1108:from nf_auto_runner import DriftDetector
+doc/19_FAQ.md:1305:from nf_auto_runner import NeuralForecastRunner
+doc/01_REQUIREMENTS_SPECIFICATION_DETAILED.md:1719:  "logger": "nf_auto_runner.training",
+doc/01_REQUIREMENTS_SPECIFICATION_DETAILED.md:1767:            ...     "nf_auto_runner.training",
+doc/13_PROJECT_SCHEDULE.md:665:- `nf_auto_runner/config/` 配下の全ファイル
+doc/13_PROJECT_SCHEDULE.md:684:- `nf_auto_runner/data/` 配下の全ファイル
+doc/13_PROJECT_SCHEDULE.md:700:| **Configuration層** | `nf_auto_runner/config/` | Dev1 | Week 2 | 未作成 |
+doc/13_PROJECT_SCHEDULE.md:701:| **Data層** | `nf_auto_runner/data/` | Dev1 | Week 4 | 未作成 |
+doc/13_PROJECT_SCHEDULE.md:702:| **Model Discovery層** | `nf_auto_runner/discovery/` | Dev1 | Week 7 | 未作成 |
+doc/13_PROJECT_SCHEDULE.md:703:| **Hyperparameter層** | `nf_auto_runner/hyperparameter/` | Dev2 | Week 7 | 未作成 |
+doc/13_PROJECT_SCHEDULE.md:704:| **Execution Plan層** | `nf_auto_runner/planning/` | Dev1 | Week 10 | 未作成 |
+doc/13_PROJECT_SCHEDULE.md:705:| **Execution層** | `nf_auto_runner/execution/` | Dev2 | Week 10 | 未作成 |
+doc/13_PROJECT_SCHEDULE.md:706:| **Artifact層** | `nf_auto_runner/artifact/` | Dev1 | Week 11 | 未作成 |
+doc/13_PROJECT_SCHEDULE.md:707:| **Logging層** | `nf_auto_runner/logging/` | Dev2 | Week 13 | 未作成 |
+doc/13_PROJECT_SCHEDULE.md:708:| **Application層** | `nf_auto_runner/application/` | Dev1 | Week 15 | 未作成 |
+doc/13_PROJECT_SCHEDULE.md:822:pytest tests/unit/ --cov=nf_auto_runner --cov-report=term-missing --cov-fail-under=90
+doc/13_PROJECT_SCHEDULE.md:826:pylint nf_auto_runner/ --fail-under=8.5
+
+thinking
+**Searching for CLI references**
+exec
+bash -lc 'rg -i "tsl" doc' in /mnt/e/env/ts/sonnet_codex exited 1 in 9ms:
+
+
+thinking
+**Searching for CLI spec**
+exec
+bash -lc 'rg "train_one" -n' in /mnt/e/env/ts/sonnet_codex succeeded in 10ms:
+nf_auto_runs/logs/codex_2025-11-04_181317.log:269:bash -lc 'rg "train_one" -n' in /mnt/e/env/ts/sonnet_codex
+nf_auto_runs/logs/codex_2025-11-04_181212.log:340:bash -lc 'rg -n "train_one" doc' in /mnt/e/env/ts/sonnet_codex exited 1 in 8ms:
+
+thinking
+**Searching for CLI specification in docs**
+exec
+bash -lc 'rg -n "CLI" doc/11_OPERATIONS_RUNBOOK.md' in /mnt/e/env/ts/sonnet_codex succeeded in 7ms:
+57:        CLI[CLI Interface]
+85:    CLI --> EXECUTOR
+
+thinking
+**Continuing CLI search**
+exec
+bash -lc 'rg -n "CLI" doc/11_OPERATIONS_RUNBOOK.md' in /mnt/e/env/ts/sonnet_codex succeeded in 7ms:
+57:        CLI[CLI Interface]
+85:    CLI --> EXECUTOR
+
+thinking
+**Searching for CLI Interface mentions**
+exec
+bash -lc 'rg -i "train" doc/11_OPERATIONS_RUNBOOK.md' in /mnt/e/env/ts/sonnet_codex succeeded in 7ms:
+        TRAINER[Model Trainer]
+    EXECUTOR --> TRAINER
+    TRAINER --> DB
+    TRAINER --> STORAGE
+    TRAINER --> MLFLOW
+    TRAINER --> RAY
+### Average Training Time by Model (Last 7 days)
+    ROUND(AVG(m.training_duration_seconds), 2) as avg_training_sec,
+ORDER BY avg_training_sec DESC;
+    ROUND(AVG(m.training_duration_seconds / 60.0), 2) as avg_training_min,
+    ROUND(MIN(m.training_duration_seconds / 60.0), 2) as min_training_min,
+    ROUND(MAX(m.training_duration_seconds / 60.0), 2) as max_training_min
+ORDER BY avg_training_min DESC;
+
+thinking
+**Searching for CLI information in docs**
+exec
+bash -lc 'rg -i "train-one" doc/18_QUICKSTART.md' in /mnt/e/env/ts/sonnet_codex exited 1 in 7ms:
+
+
+thinking
+**Searching the repository for "tsl"**
+exec
+bash -lc 'rg -i "tsl" -n' in /mnt/e/env/ts/sonnet_codex succeeded in 9ms:
+codex_prompt.txt:7:   - `nf_auto_runner.runners.main` と `tsl.cli.main train-one` の**不一致を検出**し、整合方針を決定。
+codex_prompt.txt:23:   - doc/11_OPERATIONS_RUNBOOK.md の `tsl.cli.main train-one` 記述と、
+codex_prompt.txt:32:     * OP-CLI-001: 「CLI 仕様の不一致（nf_auto_runner.runners.main vs tsl.cli.main）」
+OPEN_POINTS.md:6:| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | Awaiting final CLI contract |
+nf_auto_runs/logs/codex_2025-11-04_181317.log:20:   - `nf_auto_runner.runners.main` と `tsl.cli.main train-one` の**不一致を検出**し、整合方針を決定。
+nf_auto_runs/logs/codex_2025-11-04_181317.log:36:   - doc/11_OPERATIONS_RUNBOOK.md の `tsl.cli.main train-one` 記述と、
+nf_auto_runs/logs/codex_2025-11-04_181317.log:45:     * OP-CLI-001: 「CLI 仕様の不一致（nf_auto_runner.runners.main vs tsl.cli.main）」
+nf_auto_runs/logs/codex_2025-11-04_181317.log:187:OPEN_POINTS.md:6:| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | Awaiting final CLI contract |
+nf_auto_runs/logs/codex_2025-11-04_181317.log:188:codex_prompt.txt:7:   - `nf_auto_runner.runners.main` と `tsl.cli.main train-one` の**不一致を検出**し、整合方針を決定。
+nf_auto_runs/logs/codex_2025-11-04_181317.log:192:codex_prompt.txt:32:     * OP-CLI-001: 「CLI 仕様の不一致（nf_auto_runner.runners.main vs tsl.cli.main）」
+nf_auto_runs/logs/codex_2025-11-04_181317.log:194:nf_auto_runs/logs/codex_2025-11-04_181317.log:20:   - `nf_auto_runner.runners.main` と `tsl.cli.main train-one` の**不一致を検出**し、整合方針を決定。
+nf_auto_runs/logs/codex_2025-11-04_181317.log:198:nf_auto_runs/logs/codex_2025-11-04_181317.log:45:     * OP-CLI-001: 「CLI 仕様の不一致（nf_auto_runner.runners.main vs tsl.cli.main）」
+nf_auto_runs/logs/codex_2025-11-04_181317.log:201:nf_auto_runs/logs/codex_2025-11-04_181212.log:20:   - `nf_auto_runner.runners.main` と `tsl.cli.main train-one` の**不一致を検出**し、整合方針を決定。
+nf_auto_runs/logs/codex_2025-11-04_181317.log:205:nf_auto_runs/logs/codex_2025-11-04_181212.log:45:     * OP-CLI-001: 「CLI 仕様の不一致（nf_auto_runner.runners.main vs tsl.cli.main）」
+nf_auto_runs/logs/codex_2025-11-04_181317.log:217:| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | Awaiting final CLI contract |
+nf_auto_runs/logs/codex_2025-11-04_181317.log:222:bash -lc 'rg "tsl.cli" -n doc' in /mnt/e/env/ts/sonnet_codex exited 1 in 10ms:
+nf_auto_runs/logs/codex_2025-11-04_181317.log:263:bash -lc 'rg -i "tsl" doc' in /mnt/e/env/ts/sonnet_codex exited 1 in 9ms:
+nf_auto_runs/logs/codex_2025-11-04_181317.log:312:**Searching the repository for "tsl"**
+nf_auto_runs/logs/codex_2025-11-04_181317.log:314:bash -lc 'rg -i "tsl" -n' in /mnt/e/env/ts/sonnet_codex
+nf_auto_runs/logs/codex_2025-11-04_181212.log:20:   - `nf_auto_runner.runners.main` と `tsl.cli.main train-one` の**不一致を検出**し、整合方針を決定。
+
+thinking
+**Searching for specification documents**
+exec
+bash -lc 'rg -n "train" doc/consistency_analysis_report.md' in /mnt/e/env/ts/sonnet_codex succeeded in 8ms:
+43:   - シーケンス図では「ドリフト検知 → trigger_retrain(reason="drift")」の流れあり
+182:+    min_retraining_interval_hours: int
+196:+            min_retraining_interval_hours=int(os.getenv('MIN_RETRAINING_INTERVAL_HOURS', '24')),
+221: nf-runner train \
+222:   --data ./data/train.csv \
+406:    # 既存の retraining_events テーブルにカラム追加（存在する場合）
+407:    # op.add_column('retraining_events',
+412:    # op.drop_column('retraining_events', 'trigger_reason')
+504:pytest tests/integration/test_retraining_triggers.py -v
+662:| tests/integration/test_retraining_triggers.py | 再学習トリガーの統合テスト | Medium |
+
+thinking
+**Checking code near line 221**
+exec
+bash -lc "sed -n '200,260p' doc/consistency_analysis_report.md" in /mnt/e/env/ts/sonnet_codex succeeded in 6ms:
+**新規環境変数**:
+- `ENABLE_DRIFT_DETECTION`: ドリフト検知の有効化 (default: true)
+- `DRIFT_THRESHOLD`: ドリフト判定しきい値 (default: 0.05)
+- `DRIFT_WINDOW_SIZE`: ドリフト検知ウィンドウサイズ (default: 100)
+- `PERFORMANCE_DEGRADATION_THRESHOLD`: 性能劣化しきい値 (default: 0.1, 10%)
+- `MIN_RETRAINING_INTERVAL_HOURS`: 最小再学習間隔 (default: 24時間)
+
+**影響範囲**: ExecutionConfig クラス、環境変数ドキュメント、シーケンス図
+
+---
+
+### 📄 18_QUICKSTART.md
+
+**修正理由**: CLI --backend オプションの有効値を完全化
+
+**Rationale**: パラメータ.mdでは `cpu/cuda/mps/tpu` が言及されているが、QUICKSTART では cpu/cuda のみ
+
+```diff
+--- a/18_QUICKSTART.md
++++ b/18_QUICKSTART.md
+
+thinking
+**Searching implementation guide for spec**
+exec
+bash -lc 'rg -i "train" doc/07_IMPLEMENTATION_GUIDE.md' in /mnt/e/env/ts/sonnet_codex succeeded in 8ms:
+def set_mode(mode: Literal['train', 'test', 'predict']) -> None:
+    def train_model(self, df: pd.DataFrame) -> Model:
+class ModelTrainer:
+    def train(self, df: pd.DataFrame) -> Model:
+class TestModelTrainer:
+    """ModelTrainerのテスト"""
+    def test_train_with_mock(self):
+        trainer = ModelTrainer(mock_model)
+        trainer.train(X_train, y_train)
+        mock_model.fit.assert_called_once_with(X_train, y_train)
+│   └── test_training_flow.py
+
+thinking
+**Investigating documentation for 'train-one' specification**
+exec
+bash -lc 'rg -n "train-one" doc/00_INTEGRATED_DESIGN_OVERVIEW.md' in /mnt/e/env/ts/sonnet_codex exited 1 in 8ms:
+
+
+thinking
+**Searching for train_one function**
+exec
+bash -lc 'rg -n "train_one" doc/00_INTEGRATED_DESIGN_OVERVIEW.md' in /mnt/e/env/ts/sonnet_codex exited 1 in 7ms:
+
+
+thinking
+**Searching for CLI spec keywords**
+exec
+bash -lc 'rg -n "TSL" doc' in /mnt/e/env/ts/sonnet_codex exited 1 in 9ms:
+
+
+thinking
+**Checking for CLI specification**
+exec
+bash -lc 'ls src/nf_auto_runner/runners' in /mnt/e/env/ts/sonnet_codex exited 2 in 6ms:
+ls: 'src/nf_auto_runner/runners' にアクセスできません: そのようなファイルやディレクトリはありません
+
+thinking
+**Checking project structure**
+exec
+bash -lc 'find src -maxdepth 2 -type d' in /mnt/e/env/ts/sonnet_codex succeeded in 6ms:
+src
+src/nf_auto_runner
+src/nf_auto_runner/config
+src/nf_auto_runner/__pycache__
+
+thinking
+**Checking for existing CLI implementation**
+exec
+bash -lc 'ls src/nf_auto_runner' in /mnt/e/env/ts/sonnet_codex succeeded in 6ms:
+__init__.py
+__pycache__
+config
+
+thinking
+**Searching for documentation on implementation**
+exec
+bash -lc 'rg -n "Launch Sequence" doc/11_OPERATIONS_RUNBOOK.md' in /mnt/e/env/ts/sonnet_codex exited 1 in 6ms:
+
+
+thinking
+**Searching for implementation specifications**
+exec
+bash -lc 'ls sonnet_codex_headless_pack' in /mnt/e/env/ts/sonnet_codex succeeded in 7ms:
+doc
+
+thinking
+**Confirming readiness**
+exec
+bash -lc 'ls sonnet_codex_headless_pack/doc' in /mnt/e/env/ts/sonnet_codex succeeded in 6ms:
+
+
+thinking
+**Considering zipped files and CLI discrepancies**
+exec
+bash -lc 'rg -n "tsl" src' in /mnt/e/env/ts/sonnet_codex exited 1 in 9ms:
+
+
+thinking
+**Searching for train-one CLI references**
+exec
+bash -lc 'rg -n "train" doc/パラメータ.md' in /mnt/e/env/ts/sonnet_codex exited 1 in 7ms:
+
+
+thinking
+**Checking documentation for specs**
+exec
+bash -lc 'rg -n "train" doc/CODEX_HEADLESS_GUIDE.md' in /mnt/e/env/ts/sonnet_codex exited 2 in 8ms:
+rg: doc/CODEX_HEADLESS_GUIDE.md: IO error for operation on doc/CODEX_HEADLESS_GUIDE.md: No such file or directory (os error 2)
+
+thinking
+**Verifying documentation location**
+exec
+bash -lc 'rg -n "ローンチ" doc/11_OPERATIONS_RUNBOOK.md' in /mnt/e/env/ts/sonnet_codex exited 1 in 7ms:
+
+
+thinking
+**Planning to search CLI usage**
+exec
+bash -lc 'rg -n "nf-runner" doc/11_OPERATIONS_RUNBOOK.md' in /mnt/e/env/ts/sonnet_codex exited 1 in 7ms:
+
+
+thinking
+**Investigating train-one command references**
+exec
+bash -lc 'rg -n "train" doc/11_OPERATIONS_RUNBOOK.md' in /mnt/e/env/ts/sonnet_codex succeeded in 8ms:
+434:    ROUND(AVG(m.training_duration_seconds), 2) as avg_training_sec,
+440:ORDER BY avg_training_sec DESC;
+772:    ROUND(AVG(m.training_duration_seconds / 60.0), 2) as avg_training_min,
+773:    ROUND(MIN(m.training_duration_seconds / 60.0), 2) as min_training_min,
+774:    ROUND(MAX(m.training_duration_seconds / 60.0), 2) as max_training_min
+780:ORDER BY avg_training_min DESC;
+
+thinking
+**Evaluating CLI implementation feasibility**
+
+I'm reviewing available documentation and source files to see if a minimal CLI implementation is possible. Since the required `main.py` file doesn't exist and the related open point is already recorded, I’m confirming no new spec emerges to warrant implementation and considering updating the open points or progress status accordingly before stopping.
+exec
+bash -lc 'cat PROGRESS.md' in /mnt/e/env/ts/sonnet_codex succeeded in 7ms:
+**概要**
+- `make verify` (PYTEST_ADDOPTS='-p no:rerunfailures') succeeded: lint, pytest (31 tests), coverage 94%, GPU smoke `cuda_available: False`.
+
+**静的検証**
+- `rg "(nf_auto_runs|/logs|/models|/artifacts|/checkpoints|/plots)" src --glob '!tests/**'` → no hard-coded paths outside `PathConfig`.
+
+**動的検証**
+- `pytest -q tests/unit/config/test_path.py` (PYTEST_ADDOPTS='-p no:rerunfailures') validates NF_* defaults and overrides plus run helper paths (`tests/unit/config/test_path.py:23`, `tests/unit/config/test_path.py:50`, `tests/unit/config/test_path.py:184`).
+- Inline `PYTHONPATH=src python - <<'PY' ...` check confirmed customised `NF_*` values yield per-run dirs/files via `PathConfig` (`src/nf_auto_runner/config/path.py:78`–`src/nf_auto_runner/config/path.py:108`).
+
+**設計書アンカー別チェック**
+- ✅ `AGENTS.md#Verification`: PathConfig respects NF_* defaults and run IDs for logs/artifacts/models/plots (`src/nf_auto_runner/config/path.py:43`–`src/nf_auto_runner/config/path.py:108`).
+- ⚠️ `doc/00_DEVELOPMENT_RULES_AND_HIGH_QUALITY_PROMPTS.md#保存先の指定`: Current layout emits JSONL per-run logs under `<output>/logs` rather than `logs/structured/{date}.json`.
+- ⚠️ `doc/00_DEVELOPMENT_RULES_AND_HIGH_QUALITY_PROMPTS.md#保存先の指定`: Models saved as `<output>/models/{run_id}_${model}.pth`, not `artifacts/models/{run_id}/` yet.
+
+**進捗率**
+- MUST 1 / 1 → 100%
+
+thinking
+**Planning update to OPEN_POINTS and PROGRESS**
+file update
+M /mnt/e/env/ts/sonnet_codex/OPEN_POINTS.md
+@@ -5,2 +5,2 @@
+ | OP-001 | Should `confidence_level` be exposed in API v1? | doc/06_API_DESIGN_DETAILED.md, src/... | Keep internal only; default 0.95; no API field | To be decided by PO |
+-| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | Awaiting final CLI contract |
++| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | 2025-11-05: Revalidated; design docs still lack `train-one` contract and `src/nf_auto_runner/runners/main.py` absent. |
+apply_patch(auto_approved=true) exited 0 in 4ms:
+Success. Updated the following files:
+M OPEN_POINTS.md
+file update:
+diff --git a/OPEN_POINTS.md b/OPEN_POINTS.md
+index e62fb4d92765487b9a8e7807209334dd7bf1a4d0..9f89c676ec17d363094029a7f7767e571019a1e5
+--- a/OPEN_POINTS.md
++++ b/OPEN_POINTS.md
+@@ -3,4 +3,4 @@
+ | ID | Question / 不明点 | Affected files/sections | Proposed safe interim behavior | Notes |
+ |----|--------------------|-------------------------|---------------------------------|-------|
+ | OP-001 | Should `confidence_level` be exposed in API v1? | doc/06_API_DESIGN_DETAILED.md, src/... | Keep internal only; default 0.95; no API field | To be decided by PO |
+-| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | Awaiting final CLI contract |
++| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | 2025-11-05: Revalidated; design docs still lack `train-one` contract and `src/nf_auto_runner/runners/main.py` absent. |
+
+file update:
+diff --git a/OPEN_POINTS.md b/OPEN_POINTS.md
+index e62fb4d92765487b9a8e7807209334dd7bf1a4d0..9f89c676ec17d363094029a7f7767e571019a1e5
+--- a/OPEN_POINTS.md
++++ b/OPEN_POINTS.md
+@@ -3,4 +3,4 @@
+ | ID | Question / 不明点 | Affected files/sections | Proposed safe interim behavior | Notes |
+ |----|--------------------|-------------------------|---------------------------------|-------|
+ | OP-001 | Should `confidence_level` be exposed in API v1? | doc/06_API_DESIGN_DETAILED.md, src/... | Keep internal only; default 0.95; no API field | To be decided by PO |
+-| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | Awaiting final CLI contract |
++| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | 2025-11-05: Revalidated; design docs still lack `train-one` contract and `src/nf_auto_runner/runners/main.py` absent. |
+
+
+thinking
+**Considering progress update note**
+file update
+M /mnt/e/env/ts/sonnet_codex/PROGRESS.md
+@@ -2,2 +2,3 @@
+ - `make verify` (PYTEST_ADDOPTS='-p no:rerunfailures') succeeded: lint, pytest (31 tests), coverage 94%, GPU smoke `cuda_available: False`.
++- 2025-11-05: CLI contract for `train-one` remains undefined in docs; implementation deferred (`OPEN_POINTS.md` OP-CLI-001).
+ 
+apply_patch(auto_approved=true) exited 0 in 4ms:
+Success. Updated the following files:
+M PROGRESS.md
+file update:
+diff --git a/OPEN_POINTS.md b/OPEN_POINTS.md
+index e62fb4d92765487b9a8e7807209334dd7bf1a4d0..9f89c676ec17d363094029a7f7767e571019a1e5
+--- a/OPEN_POINTS.md
++++ b/OPEN_POINTS.md
+@@ -3,4 +3,4 @@
+ | ID | Question / 不明点 | Affected files/sections | Proposed safe interim behavior | Notes |
+ |----|--------------------|-------------------------|---------------------------------|-------|
+ | OP-001 | Should `confidence_level` be exposed in API v1? | doc/06_API_DESIGN_DETAILED.md, src/... | Keep internal only; default 0.95; no API field | To be decided by PO |
+-| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | Awaiting final CLI contract |
++| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | 2025-11-05: Revalidated; design docs still lack `train-one` contract and `src/nf_auto_runner/runners/main.py` absent. |
+diff --git a/PROGRESS.md b/PROGRESS.md
+index 59fc5274f7e0d3fbfba52a9472f32be82d4f7a2f..a348712c5b8304dff385679c4ce35bc35be9b767
+--- a/PROGRESS.md
++++ b/PROGRESS.md
+@@ -1,5 +1,6 @@
+ **概要**
+ - `make verify` (PYTEST_ADDOPTS='-p no:rerunfailures') succeeded: lint, pytest (31 tests), coverage 94%, GPU smoke `cuda_available: False`.
++- 2025-11-05: CLI contract for `train-one` remains undefined in docs; implementation deferred (`OPEN_POINTS.md` OP-CLI-001).
+ 
+ **静的検証**
+ - `rg "(nf_auto_runs|/logs|/models|/artifacts|/checkpoints|/plots)" src --glob '!tests/**'` → no hard-coded paths outside `PathConfig`.
+
+file update:
+diff --git a/OPEN_POINTS.md b/OPEN_POINTS.md
+index e62fb4d92765487b9a8e7807209334dd7bf1a4d0..9f89c676ec17d363094029a7f7767e571019a1e5
+--- a/OPEN_POINTS.md
++++ b/OPEN_POINTS.md
+@@ -3,4 +3,4 @@
+ | ID | Question / 不明点 | Affected files/sections | Proposed safe interim behavior | Notes |
+ |----|--------------------|-------------------------|---------------------------------|-------|
+ | OP-001 | Should `confidence_level` be exposed in API v1? | doc/06_API_DESIGN_DETAILED.md, src/... | Keep internal only; default 0.95; no API field | To be decided by PO |
+-| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | Awaiting final CLI contract |
++| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | 2025-11-05: Revalidated; design docs still lack `train-one` contract and `src/nf_auto_runner/runners/main.py` absent. |
+diff --git a/PROGRESS.md b/PROGRESS.md
+index 59fc5274f7e0d3fbfba52a9472f32be82d4f7a2f..a348712c5b8304dff385679c4ce35bc35be9b767
+--- a/PROGRESS.md
++++ b/PROGRESS.md
+@@ -1,5 +1,6 @@
+ **概要**
+ - `make verify` (PYTEST_ADDOPTS='-p no:rerunfailures') succeeded: lint, pytest (31 tests), coverage 94%, GPU smoke `cuda_available: False`.
++- 2025-11-05: CLI contract for `train-one` remains undefined in docs; implementation deferred (`OPEN_POINTS.md` OP-CLI-001).
+ 
+ **静的検証**
+ - `rg "(nf_auto_runs|/logs|/models|/artifacts|/checkpoints|/plots)" src --glob '!tests/**'` → no hard-coded paths outside `PathConfig`.
+
+
+thinking
+**Deciding on verification step**
+exec
+bash -lc 'nl -ba OPEN_POINTS.md' in /mnt/e/env/ts/sonnet_codex succeeded in 7ms:
+     1	# OPEN_POINTS
+     2	
+     3	| ID | Question / 不明点 | Affected files/sections | Proposed safe interim behavior | Notes |
+     4	|----|--------------------|-------------------------|---------------------------------|-------|
+     5	| OP-001 | Should `confidence_level` be exposed in API v1? | doc/06_API_DESIGN_DETAILED.md, src/... | Keep internal only; default 0.95; no API field | To be decided by PO |
+     6	| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | 2025-11-05: Revalidated; design docs still lack `train-one` contract and `src/nf_auto_runner/runners/main.py` absent. |
+file update:
+diff --git a/OPEN_POINTS.md b/OPEN_POINTS.md
+index e62fb4d92765487b9a8e7807209334dd7bf1a4d0..9f89c676ec17d363094029a7f7767e571019a1e5
+--- a/OPEN_POINTS.md
++++ b/OPEN_POINTS.md
+@@ -3,4 +3,4 @@
+ | ID | Question / 不明点 | Affected files/sections | Proposed safe interim behavior | Notes |
+ |----|--------------------|-------------------------|---------------------------------|-------|
+ | OP-001 | Should `confidence_level` be exposed in API v1? | doc/06_API_DESIGN_DETAILED.md, src/... | Keep internal only; default 0.95; no API field | To be decided by PO |
+-| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | Awaiting final CLI contract |
++| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | 2025-11-05: Revalidated; design docs still lack `train-one` contract and `src/nf_auto_runner/runners/main.py` absent. |
+diff --git a/PROGRESS.md b/PROGRESS.md
+index 59fc5274f7e0d3fbfba52a9472f32be82d4f7a2f..a348712c5b8304dff385679c4ce35bc35be9b767
+--- a/PROGRESS.md
++++ b/PROGRESS.md
+@@ -1,5 +1,6 @@
+ **概要**
+ - `make verify` (PYTEST_ADDOPTS='-p no:rerunfailures') succeeded: lint, pytest (31 tests), coverage 94%, GPU smoke `cuda_available: False`.
++- 2025-11-05: CLI contract for `train-one` remains undefined in docs; implementation deferred (`OPEN_POINTS.md` OP-CLI-001).
+ 
+ **静的検証**
+ - `rg "(nf_auto_runs|/logs|/models|/artifacts|/checkpoints|/plots)" src --glob '!tests/**'` → no hard-coded paths outside `PathConfig`.
+
+
+thinking
+**Noting line-specific progress**
+exec
+bash -lc 'nl -ba PROGRESS.md' in /mnt/e/env/ts/sonnet_codex succeeded in 6ms:
+     1	**概要**
+     2	- `make verify` (PYTEST_ADDOPTS='-p no:rerunfailures') succeeded: lint, pytest (31 tests), coverage 94%, GPU smoke `cuda_available: False`.
+     3	- 2025-11-05: CLI contract for `train-one` remains undefined in docs; implementation deferred (`OPEN_POINTS.md` OP-CLI-001).
+     4	
+     5	**静的検証**
+     6	- `rg "(nf_auto_runs|/logs|/models|/artifacts|/checkpoints|/plots)" src --glob '!tests/**'` → no hard-coded paths outside `PathConfig`.
+     7	
+     8	**動的検証**
+     9	- `pytest -q tests/unit/config/test_path.py` (PYTEST_ADDOPTS='-p no:rerunfailures') validates NF_* defaults and overrides plus run helper paths (`tests/unit/config/test_path.py:23`, `tests/unit/config/test_path.py:50`, `tests/unit/config/test_path.py:184`).
+    10	- Inline `PYTHONPATH=src python - <<'PY' ...` check confirmed customised `NF_*` values yield per-run dirs/files via `PathConfig` (`src/nf_auto_runner/config/path.py:78`–`src/nf_auto_runner/config/path.py:108`).
+    11	
+    12	**設計書アンカー別チェック**
+    13	- ✅ `AGENTS.md#Verification`: PathConfig respects NF_* defaults and run IDs for logs/artifacts/models/plots (`src/nf_auto_runner/config/path.py:43`–`src/nf_auto_runner/config/path.py:108`).
+    14	- ⚠️ `doc/00_DEVELOPMENT_RULES_AND_HIGH_QUALITY_PROMPTS.md#保存先の指定`: Current layout emits JSONL per-run logs under `<output>/logs` rather than `logs/structured/{date}.json`.
+    15	- ⚠️ `doc/00_DEVELOPMENT_RULES_AND_HIGH_QUALITY_PROMPTS.md#保存先の指定`: Models saved as `<output>/models/{run_id}_${model}.pth`, not `artifacts/models/{run_id}/` yet.
+    16	
+    17	**進捗率**
+    18	- MUST 1 / 1 → 100%
+file update:
+diff --git a/OPEN_POINTS.md b/OPEN_POINTS.md
+index e62fb4d92765487b9a8e7807209334dd7bf1a4d0..9f89c676ec17d363094029a7f7767e571019a1e5
+--- a/OPEN_POINTS.md
++++ b/OPEN_POINTS.md
+@@ -3,4 +3,4 @@
+ | ID | Question / 不明点 | Affected files/sections | Proposed safe interim behavior | Notes |
+ |----|--------------------|-------------------------|---------------------------------|-------|
+ | OP-001 | Should `confidence_level` be exposed in API v1? | doc/06_API_DESIGN_DETAILED.md, src/... | Keep internal only; default 0.95; no API field | To be decided by PO |
+-| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | Awaiting final CLI contract |
++| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | 2025-11-05: Revalidated; design docs still lack `train-one` contract and `src/nf_auto_runner/runners/main.py` absent. |
+diff --git a/PROGRESS.md b/PROGRESS.md
+index 59fc5274f7e0d3fbfba52a9472f32be82d4f7a2f..a348712c5b8304dff385679c4ce35bc35be9b767
+--- a/PROGRESS.md
++++ b/PROGRESS.md
+@@ -1,5 +1,6 @@
+ **概要**
+ - `make verify` (PYTEST_ADDOPTS='-p no:rerunfailures') succeeded: lint, pytest (31 tests), coverage 94%, GPU smoke `cuda_available: False`.
++- 2025-11-05: CLI contract for `train-one` remains undefined in docs; implementation deferred (`OPEN_POINTS.md` OP-CLI-001).
+ 
+ **静的検証**
+ - `rg "(nf_auto_runs|/logs|/models|/artifacts|/checkpoints|/plots)" src --glob '!tests/**'` → no hard-coded paths outside `PathConfig`.
+
+
+thinking
+**Drafting final status summary**
+codex
+- `OPEN_POINTS.md:6` records OP-CLI-001 revalidation: docs still omit the `train-one` contract and `src/nf_auto_runner/runners/main.py` is missing, so implementation stays deferred.
+- `PROGRESS.md:3` notes the outstanding CLI block via OP-CLI-001.
+- Work stops pending authoritative CLI specification; no lint/tests rerun.
+file update:
+diff --git a/OPEN_POINTS.md b/OPEN_POINTS.md
+index e62fb4d92765487b9a8e7807209334dd7bf1a4d0..9f89c676ec17d363094029a7f7767e571019a1e5
+--- a/OPEN_POINTS.md
++++ b/OPEN_POINTS.md
+@@ -3,4 +3,4 @@
+ | ID | Question / 不明点 | Affected files/sections | Proposed safe interim behavior | Notes |
+ |----|--------------------|-------------------------|---------------------------------|-------|
+ | OP-001 | Should `confidence_level` be exposed in API v1? | doc/06_API_DESIGN_DETAILED.md, src/... | Keep internal only; default 0.95; no API field | To be decided by PO |
+-| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | Awaiting final CLI contract |
++| OP-CLI-001 | CLI specification mismatch between `nf_auto_runner.runners.main` and `tsl.cli.main train-one` | AGENTS.md §Verification, doc/11_OPERATIONS_RUNBOOK.md §Launch Sequence | Defer CLI implementation; keep training runs disabled; ensure `make verify` remains green until spec clarified | 2025-11-05: Revalidated; design docs still lack `train-one` contract and `src/nf_auto_runner/runners/main.py` absent. |
+diff --git a/PROGRESS.md b/PROGRESS.md
+index 59fc5274f7e0d3fbfba52a9472f32be82d4f7a2f..a348712c5b8304dff385679c4ce35bc35be9b767
+--- a/PROGRESS.md
++++ b/PROGRESS.md
+@@ -1,5 +1,6 @@
+ **概要**
+ - `make verify` (PYTEST_ADDOPTS='-p no:rerunfailures') succeeded: lint, pytest (31 tests), coverage 94%, GPU smoke `cuda_available: False`.
++- 2025-11-05: CLI contract for `train-one` remains undefined in docs; implementation deferred (`OPEN_POINTS.md` OP-CLI-001).
+ 
+ **静的検証**
+ - `rg "(nf_auto_runs|/logs|/models|/artifacts|/checkpoints|/plots)" src --glob '!tests/**'` → no hard-coded paths outside `PathConfig`.
+
+tokens used
+44,187
+- `OPEN_POINTS.md:6` records OP-CLI-001 revalidation: docs still omit the `train-one` contract and `src/nf_auto_runner/runners/main.py` is missing, so implementation stays deferred.
+- `PROGRESS.md:3` notes the outstanding CLI block via OP-CLI-001.
+- Work stops pending authoritative CLI specification; no lint/tests rerun.

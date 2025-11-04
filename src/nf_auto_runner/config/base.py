@@ -24,7 +24,11 @@ class Config(ABC):
     def from_dict(cls: Type[T], data: Dict[str, Any]) -> T:
         """Construct configuration from dictionary data."""
         converted: Dict[str, Any] = {}
-        dataclass_fields = {field.name: field for field in fields(cls)} if hasattr(cls, "__dataclass_fields__") else {}
+        dataclass_fields = (
+            {field.name: field for field in fields(cls)}
+            if hasattr(cls, "__dataclass_fields__")
+            else {}
+        )
         type_hints = get_type_hints(cls)
         for key, value in data.items():
             if dataclass_fields and key not in dataclass_fields:

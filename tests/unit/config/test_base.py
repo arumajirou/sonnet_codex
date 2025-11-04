@@ -17,7 +17,7 @@ SRC_DIR = ROOT_DIR / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from nf_auto_runner.config.base import Config
+from nf_auto_runner.config.base import Config  # noqa: E402
 
 
 @dataclass(frozen=True)

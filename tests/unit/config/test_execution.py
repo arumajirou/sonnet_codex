@@ -203,7 +203,9 @@ class TestExecutionConfig:
 
         assert config.is_production() is False
 
-    def test_get_worker_count_respects_limit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_get_worker_count_respects_limit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """get_worker_count should cap the value at cpu_count."""
         monkeypatch.setenv("N_WORKERS", "16")
         monkeypatch.setenv("PARALLEL_BACKEND", "multiprocessing")
