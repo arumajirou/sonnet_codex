@@ -7,5 +7,6 @@ line-length = 88
 target-version = "py311"
 
 [tool.ruff.lint]
+select = ["E","F","I","UP","B","SIM","C90"]
 ignore = ["E203"]
-select = ["E", "F", "I", "UP", "B", "SIM", "C90", "W"]
+per-file-ignores = { "src/nf_auto_runner/logging/structured.py" = ["C901","SIM108"] }

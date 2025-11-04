@@ -57,8 +57,11 @@ class Config(ABC):
         with path_obj.open("r", encoding="utf-8") as file_handle:
             return cls.from_json(file_handle.read())
 
+    @abstractmethod
     def validate(self) -> None:
         """Validate configuration fields."""
+
+        ...
 
     def to_dict(self) -> dict[str, Any]:
         """Return configuration as dictionary."""

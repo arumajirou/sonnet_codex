@@ -113,7 +113,8 @@ def _normalise_remote_url(raw: str) -> str | None:
     if not raw:
         return None
     if raw.startswith("git@github.com:"):
-        repo_part = raw[len("git@github.com:") :]
+        prefix_len = len("git@github.com:")
+        repo_part = raw[prefix_len:]
         if repo_part.endswith(".git"):
             repo_part = repo_part[:-4]
         return f"https://github.com/{repo_part}"
@@ -131,8 +132,7 @@ def _detect_remote_base() -> tuple[str, str] | None:
             ["git", "remote", "get-url", "origin"],
             cwd=REPO_ROOT,
             check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
         )
     except subprocess.CalledProcessError:
@@ -150,8 +150,7 @@ def _detect_default_branch() -> str:
     primary = subprocess.run(
         ["git", "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
         cwd=REPO_ROOT,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True,
     )
     if primary.returncode == 0:
@@ -163,8 +162,7 @@ def _detect_default_branch() -> str:
     remote_show = subprocess.run(
         ["git", "remote", "show", "origin"],
         cwd=REPO_ROOT,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True,
     )
     if remote_show.returncode == 0:
