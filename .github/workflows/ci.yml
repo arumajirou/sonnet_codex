@@ -1,57 +1,59 @@
 name: CI
 
-on:
-  push:
-    branches: ["**"]
-  pull_request:
+on: [push, pull_request]
 
 jobs:
   ci:
     runs-on: ubuntu-latest
-
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-
-      # Optional but nice-to-have: cache pip downloads
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          python-version: ${{ matrix.python-version }}
 
       - name: Install deps
+        env:
+          PIP_DISABLE_PIP_VERSION_CHECK: "1"
         run: |
           python -m pip install -U pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install .
-          pip install ruff black pytest pytest-cov
-
-      # src/ レイアウトでパッケージ未インストールでも import できるようにする
-      - name: Export PYTHONPATH for src layout
-        run: echo "PYTHONPATH=${PYTHONPATH}:$GITHUB_WORKSPACE/src" >> $GITHUB_ENV
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          # パッケージ本体 + data エキストラ（テストに必要）
+          pip install ".[data]"
 
       - name: Lint
         run: |
           ruff check .
           black --check .
 
+      - name: Type check
+        run: |
+          mypy src
+
       - name: Test
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
           PYTEST_ADDOPTS: "-p pytest_cov"
         run: |
-          pytest -q --maxfail=1 --disable-warnings -k "not e2e and not slow" --cov=src/nf_auto_runner --cov-report=xml
+          pytest -q --maxfail=1 --disable-warnings -k "not e2e and not slow" \
+            --cov=src/nf_auto_runner --cov-report=xml
 
-      - name: Upload coverage.xml
-        uses: actions/upload-artifact@v4
+      - name: Build (sdist/wheel)
+        run: |
+          python -m build
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: coverage-xml
+          name: coverage-xml-${{ matrix.python-version }}
           path: coverage.xml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.python-version }}
+          path: dist/*
