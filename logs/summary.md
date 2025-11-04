@@ -32,3 +32,8 @@ Automation update:
 - Untrack sweep re-ran; no tracked artifacts remained after cleanup.
 - `make -k ci` exited early because `black --check` reported `tools/update_summary_locations.py` would be reformatted.
 - push: origin not set; wrote logs/push_instructions.md.
+
+---
+### Automation update (2025-11-04 21:57:33)
+- Applied code formatting (Black/Ruff) to tools/.
+- make -k ci result: FAIL
